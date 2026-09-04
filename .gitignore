@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Production builds
+dist/
+**/dist/
+build/
+
+# Android build outputs
+client/android/app/build/
+client/android/.gradle/
+client/android/build/
+client/android/local.properties
+client/android/.idea/
+client/android/app/*.apk
+
+# Logs & temporary files
+*.log
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env

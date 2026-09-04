@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_rounded_bg"
+    android:padding="10dp">
+
+    <!-- Top Status Bar in Widget -->
+    <LinearLayout
+        android:id="@+id/widget_top_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/widget_room_code"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/widget_pill_bg"
+            android:fontFamily="sans-serif-medium"
+            android:paddingStart="8dp"
+            android:paddingTop="3dp"
+            android:paddingEnd="8dp"
+            android:paddingBottom="3dp"
+            android:text="❤️ Partner Play"
+            android:textColor="#FF5722"
+            android:textSize="11sp" />
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <TextView
+            android:id="@+id/widget_status_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Live Sync"
+            android:textColor="#8E8B85"
+            android:textSize="10sp" />
+    </LinearLayout>
+
+    <!-- Main Canvas Drawing Image -->
+    <ImageView
+        android:id="@+id/widget_canvas_image"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_above="@+id/widget_bottom_bar"
+        android:layout_below="@+id/widget_top_bar"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="4dp"
+        android:adjustViewBounds="true"
+        android:contentDescription="Partner Drawing Canvas"
+        android:scaleType="fitCenter" />
+
+    <!-- Bottom Action Bar in Widget -->
+    <LinearLayout
+        android:id="@+id/widget_bottom_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/widget_author_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Tap to open &amp; draw"
+            android:textColor="#A1A1AA"
+            android:textSize="10sp" />
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <TextView
+            android:id="@+id/widget_refresh_hint"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Auto-sync"
+            android:textColor="#FF5722"
+            android:textSize="9sp" />
+    </LinearLayout>
+
+</RelativeLayout>

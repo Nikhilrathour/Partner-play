@@ -1,0 +1,10 @@
+{
+  "name": "partner-play",
+  "version": "1.0.0",
+  "description": "Shared real-time canvas & synchronized audio for couples",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "npm --prefix client run dev",
+    "build": "npm --prefix client run build"
+  }
+}
