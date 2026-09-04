@@ -1,0 +1,9 @@
+{
+	"appId": "com.partnerplay.app",
+	"appName": "Partner Play",
+	"webDir": "dist",
+	"server": {
+		"androidScheme": "https",
+		"cleartext": true
+	}
+}

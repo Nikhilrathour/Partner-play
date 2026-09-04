@@ -20,6 +20,9 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
+      - name: Make gradlew executable
+        run: chmod +x client/android/gradlew
+
       - name: Set up Node.js 18
         uses: actions/setup-node@v4
         with:
@@ -35,13 +38,10 @@ jobs:
           cd client
           npm run build
 
-      - name: Sync Capacitor Android
+      - name: Copy Assets to Android
         run: |
           cd client
-          npx -y @capacitor/cli sync android
-
-      - name: Make gradlew executable
-        run: chmod +x client/android/gradlew
+          npx -y @capacitor/cli copy android
 
       - name: Build Debug APK
         run: |
