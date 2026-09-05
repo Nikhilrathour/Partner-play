@@ -27,7 +27,13 @@ export function setCustomServerUrl(url) {
 export function getServerUrl() {
   if (typeof window !== 'undefined') {
     const custom = localStorage.getItem('partner_play_server_url');
-    if (custom && custom.trim()) return custom.trim();
+    if (custom && custom.trim()) {
+      if (custom.includes('localhost') || custom.includes('127.0.0.1')) {
+        localStorage.removeItem('partner_play_server_url');
+      } else {
+        return custom.trim();
+      }
+    }
   }
   if (import.meta.env.VITE_SOCKET_URL) {
     return import.meta.env.VITE_SOCKET_URL;
