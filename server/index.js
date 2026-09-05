@@ -51,6 +51,7 @@ app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
     activeRooms: rooms.size,
+    roomCodes: Array.from(rooms.keys()),
     timestamp: Date.now(),
   });
 });
