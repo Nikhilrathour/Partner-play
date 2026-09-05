@@ -3,6 +3,9 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 
+const fs = require('fs');
+const path = require('path');
+
 process.on('uncaughtException', (err) => {
   console.error('[Uncaught Exception]', err);
 });
@@ -15,14 +18,38 @@ app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
 }));
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Static directory for uploaded audio shared between partners
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+app.use('/uploads', express.static(uploadsDir));
+
 app.use((err, req, res, next) => {
   if (err) {
     return res.status(400).json({ error: 'Bad Request', details: err.message });
   }
   next();
 });
+
+// Default playable test song: "blue" by yung kai
+const DEFAULT_TEST_TRACK = {
+  source: 'youtube',
+  id: '98zHKN-xSHk',
+  videoId: '98zHKN-xSHk',
+  title: 'blue',
+  artist: 'yung kai',
+  genre: 'Love / Acoustic',
+  icon: 'heart',
+  color: 'bg-blue-50 text-blue-600 border-blue-200',
+  duration: 213,
+  isPlaying: false,
+  currentTime: 0,
+  lastUpdated: Date.now(),
+};
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -121,16 +148,7 @@ app.post('/api/room/create', (req, res) => {
     createdAt: Date.now(),
     members: [newUser],
     canvasState: [],
-    currentTrack: {
-      source: 'ambient',
-      id: 'ambient_1',
-      title: 'Midnight Lo-Fi Romance',
-      artist: 'Couple Beats',
-      url: 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3',
-      isPlaying: false,
-      currentTime: 0,
-      lastUpdated: Date.now(),
-    },
+    currentTrack: { ...DEFAULT_TEST_TRACK },
     notes: [],
   };
 
@@ -160,16 +178,7 @@ app.post('/api/room/join', (req, res) => {
       createdAt: Date.now(),
       members: [],
       canvasState: [],
-      currentTrack: {
-        source: 'ambient',
-        id: 'ambient_1',
-        title: 'Midnight Lo-Fi Romance',
-        artist: 'Couple Beats',
-        url: 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3',
-        isPlaying: false,
-        currentTime: 0,
-        lastUpdated: Date.now(),
-      },
+      currentTrack: { ...DEFAULT_TEST_TRACK },
       notes: [],
     };
     rooms.set(formattedCode, room);
@@ -334,8 +343,37 @@ app.post('/api/room/:code/music/toggle', (req, res) => {
   });
 });
 
+// Endpoint for uploading and sharing local audio files with room partner
+app.post('/api/audio/upload', (req, res) => {
+  const { fileName, fileData } = req.body;
+  if (!fileData) {
+    return res.status(400).json({ error: 'No audio data provided' });
+  }
+  try {
+    const base64Data = fileData.replace(/^data:[^;]+;base64,/, '');
+    const buffer = Buffer.from(base64Data, 'base64');
+    const ext = path.extname(fileName || '') || '.mp3';
+    const safeId = `audio_${Date.now()}_${Math.random().toString(36).substring(2, 7)}${ext}`;
+    const filePath = path.join(uploadsDir, safeId);
+    fs.writeFileSync(filePath, buffer);
+
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+    const host = req.get('host');
+    const audioUrl = `${protocol}://${host}/uploads/${safeId}`;
+
+    return res.json({
+      success: true,
+      url: audioUrl,
+      fileName,
+      id: safeId,
+    });
+  } catch (err) {
+    console.error('Audio upload failed:', err);
+    return res.status(500).json({ error: 'Failed to process audio upload' });
+  }
+});
+
 // Serve client dist static files
-const path = require('path');
 const distPath = path.join(__dirname, '../client/dist');
 app.use(express.static(distPath));
 
@@ -420,16 +458,7 @@ io.on('connection', (socket) => {
         createdAt: Date.now(),
         members: [],
         canvasState: [],
-        currentTrack: {
-          source: 'ambient',
-          id: 'ambient_1',
-          title: 'Midnight Lo-Fi Romance',
-          artist: 'Couple Beats',
-          url: 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3',
-          isPlaying: false,
-          currentTime: 0,
-          lastUpdated: Date.now(),
-        },
+        currentTrack: { ...DEFAULT_TEST_TRACK },
         notes: [],
       };
       rooms.set(formattedCode, room);
@@ -588,11 +617,10 @@ io.on('connection', (socket) => {
 
     // Update room audio state
     if (track) {
-      room.currentTrack.source = track.source || room.currentTrack.source;
-      room.currentTrack.id = track.id || room.currentTrack.id;
-      room.currentTrack.title = track.title || room.currentTrack.title;
-      room.currentTrack.artist = track.artist || room.currentTrack.artist;
-      room.currentTrack.url = track.url || room.currentTrack.url;
+      room.currentTrack = {
+        ...room.currentTrack,
+        ...track,
+      };
     }
 
     if (action === 'play') {

@@ -21,90 +21,34 @@ import {
   Coffee,
   Music,
   Heart,
-  AlertCircle
+  AlertCircle,
+  Upload,
+  HardDrive,
+  Trash2,
+  FileAudio,
+  CheckCircle2
 } from 'lucide-react';
+import { 
+  saveLocalTrackToDB, 
+  getLocalTracksFromDB, 
+  deleteLocalTrackFromDB 
+} from '../services/localAudioDb';
 
 const SILENT_AUDIO = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
 
-export const PRESET_TRACKS = [
-  {
-    id: 'ambient_1',
-    title: 'Midnight Lo-Fi Romance',
-    artist: 'Couple Beats',
-    genre: 'Lo-Fi Chill',
-    source: 'ambient',
-    url: 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3',
-    icon: 'moon',
-    color: 'bg-emerald-50 text-emerald-600 border-emerald-200',
-    duration: 147,
-  },
-  {
-    id: 'ambient_2',
-    title: 'Gentle Rain & Sweet Piano',
-    artist: 'Peaceful Moments',
-    genre: 'Rain & Piano',
-    source: 'ambient',
-    url: 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3?filename=rain-and-nostalgia-20516.mp3',
-    icon: 'rain',
-    color: 'bg-sky-50 text-sky-600 border-sky-200',
-    duration: 168,
-  },
-  {
-    id: 'ambient_3',
-    title: 'Starlit Acoustic Serenade',
-    artist: 'Acoustic Dreams',
-    genre: 'Acoustic Love',
-    source: 'ambient',
-    url: 'https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=sweet-love-112705.mp3',
-    icon: 'sparkles',
-    color: 'bg-purple-50 text-purple-600 border-purple-200',
-    duration: 154,
-  },
-  {
-    id: 'ambient_4',
-    title: 'Warm Fireside Acoustic',
-    artist: 'Cozy Moments',
-    genre: 'Fireside Chill',
-    source: 'ambient',
-    url: 'https://cdn.pixabay.com/download/audio/2022/10/14/audio_9939f77c30.mp3?filename=relaxing-guitar-loop-124976.mp3',
-    icon: 'flame',
-    color: 'bg-orange-50 text-orange-600 border-orange-200',
-    duration: 120,
-  },
-  {
-    id: 'jfKfPfyJRdk',
-    title: 'Lofi Girl - Relax & Study Beats',
-    artist: 'Lofi Girl Live',
-    genre: 'Lofi Live',
-    source: 'youtube',
-    videoId: 'jfKfPfyJRdk',
-    icon: 'headphones',
-    color: 'bg-rose-50 text-rose-600 border-rose-200',
-    duration: 0,
-  },
-  {
-    id: '4xDzrJKXOOY',
-    title: 'Synthwave Sunset & Chill',
-    artist: 'Lofi Sunset',
-    genre: 'Synthwave',
-    source: 'youtube',
-    videoId: '4xDzrJKXOOY',
-    icon: 'sunset',
-    color: 'bg-amber-50 text-amber-600 border-amber-200',
-    duration: 0,
-  },
-  {
-    id: '-5KAN9_CzSA',
-    title: 'Cozy Coffee Shop & Rain Jazz',
-    artist: 'Coffee Rain Beats',
-    genre: 'Coffee Jazz',
-    source: 'youtube',
-    videoId: '-5KAN9_CzSA',
-    icon: 'coffee',
-    color: 'bg-stone-100 text-stone-700 border-stone-300',
-    duration: 0,
-  },
-];
+export const DEFAULT_TRACK = {
+  id: '98zHKN-xSHk',
+  videoId: '98zHKN-xSHk',
+  title: 'blue',
+  artist: 'yung kai',
+  genre: 'Love / Acoustic',
+  source: 'youtube',
+  icon: 'heart',
+  color: 'bg-blue-50 text-blue-600 border-blue-200',
+  duration: 213,
+};
+
+export const PRESET_TRACKS = [DEFAULT_TRACK];
 
 // Bespoke icon renderer for tracks
 export function renderTrackIcon(iconName, className = 'w-4 h-4') {
@@ -123,9 +67,20 @@ export function renderTrackIcon(iconName, className = 'w-4 h-4') {
 
 function extractYouTubeId(url) {
   if (!url) return null;
-  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-  const match = url.match(regExp);
-  return (match && match[2].length === 11) ? match[2] : (url.length === 11 ? url : null);
+  const trimmed = url.trim();
+  if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed;
+  const regExp = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=|shorts\/|live\/)|youtu\.be\/)([^"&?\/\s]{11})/i;
+  const match = trimmed.match(regExp);
+  if (match && match[1]) return match[1];
+  try {
+    const parsed = new URL(trimmed.startsWith('http') ? trimmed : `https://${trimmed}`);
+    const v = parsed.searchParams.get('v');
+    if (v && v.length === 11) return v;
+    const parts = parsed.pathname.split('/').filter(Boolean);
+    const last = parts[parts.length - 1];
+    if (last && last.length === 11) return last;
+  } catch (e) {}
+  return null;
 }
 
 function formatTime(seconds) {
@@ -142,7 +97,7 @@ export default function AudioPlayer({
   onSwitchTab,
   onPlayStateChange 
 }) {
-  const [currentTrack, setCurrentTrack] = useState(room?.currentTrack || PRESET_TRACKS[0]);
+  const [currentTrack, setCurrentTrack] = useState(room?.currentTrack || DEFAULT_TRACK);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -153,13 +108,44 @@ export default function AudioPlayer({
   const [youtubeError, setYoutubeError] = useState('');
   const [selectedGenre, setSelectedGenre] = useState('all');
   const [showVideoEmbed, setShowVideoEmbed] = useState(false);
+  const [localTracks, setLocalTracks] = useState([]);
+  const [isUploadingLocal, setIsUploadingLocal] = useState(false);
+  const fileInputRef = useRef(null);
+  const activeBlobUrlsRef = useRef(new Map());
+
+  // Load user's saved local storage tracks from IndexedDB
+  useEffect(() => {
+    getLocalTracksFromDB()
+      .then((tracks) => {
+        setLocalTracks(tracks || []);
+      })
+      .catch((err) => {
+        console.warn('Failed to load local tracks from IndexedDB:', err);
+      });
+  }, []);
 
   const htmlAudioRef = useRef(null);
   const ytPlayerRef = useRef(null);
   const isSelfTriggeredRef = useRef(false);
+  const currentTrackRef = useRef(currentTrack);
+  const isPlayingRef = useRef(isPlaying);
+  const volumeRef = useRef(volume);
+  const pendingTrackRef = useRef(null);
   const [remoteToast, setRemoteToast] = useState(null);
   const [isMiniPlayerDismissed, setIsMiniPlayerDismissed] = useState(false);
   const toastTimerRef = useRef(null);
+
+  useEffect(() => {
+    currentTrackRef.current = currentTrack;
+  }, [currentTrack]);
+
+  useEffect(() => {
+    isPlayingRef.current = isPlaying;
+  }, [isPlaying]);
+
+  useEffect(() => {
+    volumeRef.current = volume;
+  }, [volume]);
 
   const DRIFT_THRESHOLD_SECONDS = 0.25;
 
@@ -192,15 +178,29 @@ export default function AudioPlayer({
           if (isPlaying) togglePlay();
         });
         navigator.mediaSession.setActionHandler('nexttrack', () => {
-          const currentIndex = PRESET_TRACKS.findIndex((t) => t.id === currentTrack.id);
-          const nextTrack = PRESET_TRACKS[(currentIndex + 1) % PRESET_TRACKS.length];
-          if (nextTrack) handleSelectTrack(nextTrack);
+          const allTracks = [DEFAULT_TRACK, ...localTracks];
+          const currentIndex = allTracks.findIndex((t) => t.id === currentTrack.id);
+          const nextTrack = allTracks[(currentIndex + 1) % allTracks.length];
+          if (nextTrack) {
+            if (nextTrack.isLocal || nextTrack.blob) {
+              handlePlaySavedLocalTrack(nextTrack);
+            } else {
+              handleSelectTrack(nextTrack);
+            }
+          }
         });
         navigator.mediaSession.setActionHandler('previoustrack', () => {
-          const currentIndex = PRESET_TRACKS.findIndex((t) => t.id === currentTrack.id);
-          const prevIndex = (currentIndex - 1 + PRESET_TRACKS.length) % PRESET_TRACKS.length;
-          const prevTrack = PRESET_TRACKS[prevIndex];
-          if (prevTrack) handleSelectTrack(prevTrack);
+          const allTracks = [DEFAULT_TRACK, ...localTracks];
+          const currentIndex = allTracks.findIndex((t) => t.id === currentTrack.id);
+          const prevIndex = (currentIndex - 1 + allTracks.length) % allTracks.length;
+          const prevTrack = allTracks[prevIndex];
+          if (prevTrack) {
+            if (prevTrack.isLocal || prevTrack.blob) {
+              handlePlaySavedLocalTrack(prevTrack);
+            } else {
+              handleSelectTrack(prevTrack);
+            }
+          }
         });
       } catch (err) {
         console.log('MediaSession handlers not supported:', err);
@@ -211,63 +211,149 @@ export default function AudioPlayer({
   // YouTube IFrame API Initialization (Target is ALWAYS present in DOM)
   useEffect(() => {
     let ytPlayer = null;
+    let pollInterval = null;
 
     const initYT = () => {
-      if (window.YT && window.YT.Player && document.getElementById('youtube-hidden-player')) {
-        ytPlayer = new window.YT.Player('youtube-hidden-player', {
-          height: '100%',
-          width: '100%',
-          videoId: currentTrack.source === 'youtube' ? (currentTrack.videoId || currentTrack.id) : 'jfKfPfyJRdk',
-          playerVars: {
-            autoplay: 0,
-            controls: 1,
-            disablekb: 0,
-            fs: 1,
-            rel: 0,
-            modestbranding: 1,
-            playsinline: 1,
-            enablejsapi: 1,
-            origin: window.location.origin,
-          },
-          events: {
-            onReady: (event) => {
-              ytPlayerRef.current = event.target;
-              event.target.setVolume(volume * 100);
+      if (ytPlayerRef.current) return;
+      const mountEl = document.getElementById('youtube-hidden-player');
+      if (!mountEl) return;
+
+      if (window.YT && window.YT.Player) {
+        try {
+          ytPlayer = new window.YT.Player('youtube-hidden-player', {
+            height: '100%',
+            width: '100%',
+            videoId: currentTrackRef.current?.source === 'youtube' 
+              ? (currentTrackRef.current.videoId || currentTrackRef.current.id) 
+              : 'jfKfPfyJRdk',
+            playerVars: {
+              autoplay: 0,
+              controls: 1,
+              disablekb: 0,
+              fs: 1,
+              rel: 0,
+              modestbranding: 1,
+              playsinline: 1,
+              enablejsapi: 1,
+              ...(window.location.origin && window.location.origin !== 'null' ? { origin: window.location.origin } : {}),
             },
-            onStateChange: (event) => {
-              if (event.data === 1) {
-                // Playing
-                if (!isPlaying && isSelfTriggeredRef.current) {
-                  setIsPlaying(true);
-                }
-              } else if (event.data === 2) {
-                // Paused
-                if (isPlaying && !isSelfTriggeredRef.current && document.hidden) {
-                  // If YouTube pauses involuntarily when phone screen locks, auto-resume background playback
-                  setTimeout(() => {
-                    if (ytPlayerRef.current && isPlaying && ytPlayerRef.current.playVideo) {
-                      ytPlayerRef.current.playVideo();
+            events: {
+              onReady: (event) => {
+                ytPlayerRef.current = event.target;
+                try {
+                  event.target.setVolume(volumeRef.current * 100);
+                } catch (err) {}
+
+                if (pendingTrackRef.current) {
+                  const targetTrack = pendingTrackRef.current;
+                  pendingTrackRef.current = null;
+                  if (targetTrack.source === 'youtube') {
+                    const targetId = targetTrack.videoId || targetTrack.id;
+                    event.target.loadVideoById(targetId);
+                    if (isPlayingRef.current) {
+                      event.target.playVideo();
                     }
-                  }, 250);
-                } else if (isPlaying && isSelfTriggeredRef.current) {
-                  setIsPlaying(false);
+                  }
                 }
-              }
+              },
+              onStateChange: (event) => {
+                if (event.data === 1) {
+                  // Playing
+                  if (!isPlayingRef.current) {
+                    setIsPlaying(true);
+                    isPlayingRef.current = true;
+                    if (!isSelfTriggeredRef.current) {
+                      socket.emit('audio:sync', {
+                        action: 'play',
+                        track: currentTrackRef.current,
+                        currentTime: event.target.getCurrentTime ? event.target.getCurrentTime() : 0,
+                        sentAt: Date.now(),
+                        initiatedBy: user?.name || 'Partner',
+                      });
+                    }
+                  }
+                } else if (event.data === 2) {
+                  // Paused
+                  if (isPlayingRef.current) {
+                    if (document.hidden && !isSelfTriggeredRef.current) {
+                      // If YouTube pauses involuntarily when phone screen locks, auto-resume background playback
+                      setTimeout(() => {
+                        if (ytPlayerRef.current && isPlayingRef.current && ytPlayerRef.current.playVideo) {
+                          ytPlayerRef.current.playVideo();
+                        }
+                      }, 250);
+                    } else {
+                      setIsPlaying(false);
+                      isPlayingRef.current = false;
+                      if (!isSelfTriggeredRef.current) {
+                        socket.emit('audio:sync', {
+                          action: 'pause',
+                          track: currentTrackRef.current,
+                          currentTime: event.target.getCurrentTime ? event.target.getCurrentTime() : 0,
+                          sentAt: Date.now(),
+                          initiatedBy: user?.name || 'Partner',
+                        });
+                      }
+                    }
+                  }
+                } else if (event.data === 0) {
+                  // Ended
+                  setIsPlaying(false);
+                  isPlayingRef.current = false;
+                }
+              },
+              onError: (event) => {
+                console.warn('YouTube Player error code:', event.data);
+                let msg = 'YouTube playback encountered an issue.';
+                if (event.data === 101 || event.data === 150) {
+                  msg = 'This video owner has disabled playback in third-party embedded apps. Please try another link!';
+                } else if (event.data === 100) {
+                  msg = 'YouTube video not found or marked private.';
+                } else if (event.data === 2) {
+                  msg = 'Invalid YouTube video link or ID.';
+                }
+                setYoutubeError(msg);
+                setIsPlaying(false);
+                isPlayingRef.current = false;
+              },
             },
-          },
-        });
+          });
+        } catch (err) {
+          console.error('Error instantiating YouTube player:', err);
+        }
       }
     };
+
+    // Ensure script tag exists
+    if (!document.querySelector('script[src*="youtube.com/iframe_api"]')) {
+      const tag = document.createElement('script');
+      tag.src = 'https://www.youtube.com/iframe_api';
+      document.head.appendChild(tag);
+    }
 
     if (window.YT && window.YT.Player) {
       initYT();
     } else {
-      window.onYouTubeIframeAPIReady = initYT;
+      const prevCallback = window.onYouTubeIframeAPIReady;
+      window.onYouTubeIframeAPIReady = () => {
+        if (typeof prevCallback === 'function') prevCallback();
+        initYT();
+      };
+      pollInterval = setInterval(() => {
+        if (window.YT && window.YT.Player) {
+          clearInterval(pollInterval);
+          initYT();
+        }
+      }, 500);
     }
 
     return () => {
+      if (pollInterval) clearInterval(pollInterval);
       if (ytPlayer && ytPlayer.destroy) {
-        ytPlayer.destroy();
+        try {
+          ytPlayer.destroy();
+        } catch (e) {}
+        ytPlayerRef.current = null;
       }
     };
   }, []);
@@ -339,12 +425,16 @@ export default function AudioPlayer({
 
       if (action === 'play') {
         setIsPlaying(true);
-        if (activeSource === 'youtube' && ytPlayerRef.current) {
-          const currentYT = ytPlayerRef.current.getCurrentTime ? ytPlayerRef.current.getCurrentTime() : 0;
-          if (Math.abs(currentYT - targetTime) >= DRIFT_THRESHOLD_SECONDS) {
-            ytPlayerRef.current.seekTo(targetTime, true);
+        if (activeSource === 'youtube') {
+          if (ytPlayerRef.current && ytPlayerRef.current.playVideo) {
+            const currentYT = ytPlayerRef.current.getCurrentTime ? ytPlayerRef.current.getCurrentTime() : 0;
+            if (Math.abs(currentYT - targetTime) >= DRIFT_THRESHOLD_SECONDS) {
+              ytPlayerRef.current.seekTo(targetTime, true);
+            }
+            ytPlayerRef.current.playVideo();
+          } else {
+            pendingTrackRef.current = track || currentTrack;
           }
-          ytPlayerRef.current.playVideo();
           if (htmlAudioRef.current) {
             htmlAudioRef.current.src = SILENT_AUDIO;
             htmlAudioRef.current.loop = true;
@@ -362,8 +452,10 @@ export default function AudioPlayer({
       } else if (action === 'pause') {
         setIsPlaying(false);
         if (activeSource === 'youtube' && ytPlayerRef.current) {
-          ytPlayerRef.current.pauseVideo();
-          if (typeof targetTime === 'number') {
+          if (ytPlayerRef.current.pauseVideo) {
+            ytPlayerRef.current.pauseVideo();
+          }
+          if (typeof targetTime === 'number' && ytPlayerRef.current.seekTo) {
             ytPlayerRef.current.seekTo(targetTime, true);
           }
           if (htmlAudioRef.current) {
@@ -378,21 +470,37 @@ export default function AudioPlayer({
       } else if (action === 'seek') {
         setCurrentTime(targetTime);
         if (activeSource === 'youtube' && ytPlayerRef.current) {
-          ytPlayerRef.current.seekTo(targetTime, true);
+          if (ytPlayerRef.current.seekTo) {
+            ytPlayerRef.current.seekTo(targetTime, true);
+          }
         } else if (htmlAudioRef.current) {
           htmlAudioRef.current.currentTime = targetTime;
         }
       } else if (action === 'change_track') {
         setIsPlaying(true);
         setCurrentTime(0);
-        if (track.source === 'youtube' && ytPlayerRef.current) {
+        if (track.source === 'youtube') {
+          setShowVideoEmbed(true);
+          if (htmlAudioRef.current) htmlAudioRef.current.pause();
           const vId = track.videoId || track.id;
-          ytPlayerRef.current.loadVideoById(vId);
-          ytPlayerRef.current.playVideo();
+          if (ytPlayerRef.current && ytPlayerRef.current.loadVideoById) {
+            ytPlayerRef.current.loadVideoById(vId);
+            ytPlayerRef.current.playVideo();
+          } else {
+            pendingTrackRef.current = track;
+          }
         } else if (htmlAudioRef.current) {
+          setShowVideoEmbed(false);
+          if (ytPlayerRef.current && ytPlayerRef.current.pauseVideo) {
+            ytPlayerRef.current.pauseVideo();
+          }
           htmlAudioRef.current.src = track.url;
           htmlAudioRef.current.currentTime = 0;
           htmlAudioRef.current.play().catch(() => {});
+        }
+      } else if (action === 'update_metadata' && track) {
+        if (track.id === currentTrackRef.current?.id) {
+          setCurrentTrack(track);
         }
       }
     };
@@ -413,7 +521,7 @@ export default function AudioPlayer({
           setCurrentTime(time);
           if (dur > 0) setDuration(dur);
         } catch (err) {}
-      } else if (currentTrack.source === 'ambient' && htmlAudioRef.current && isPlaying) {
+      } else if (currentTrack.source !== 'youtube' && htmlAudioRef.current && isPlaying) {
         setCurrentTime(htmlAudioRef.current.currentTime);
         if (htmlAudioRef.current.duration) {
           setDuration(htmlAudioRef.current.duration);
@@ -431,7 +539,7 @@ export default function AudioPlayer({
     setIsPlaying(nextIsPlaying);
 
     let activeTime = currentTime;
-    if (currentTrack.source === 'ambient' && htmlAudioRef.current) {
+    if (currentTrack.source !== 'youtube' && htmlAudioRef.current) {
       if (nextIsPlaying) {
         htmlAudioRef.current.play().catch(() => {});
       } else {
@@ -460,18 +568,19 @@ export default function AudioPlayer({
       track: currentTrack,
       currentTime: activeTime,
       sentAt: Date.now(),
+      initiatedBy: user?.name,
     });
 
     setTimeout(() => {
       isSelfTriggeredRef.current = false;
-    }, 300);
+    }, 500);
   };
 
   const handleSeek = (e) => {
     const newTime = parseFloat(e.target.value);
     setCurrentTime(newTime);
 
-    if (currentTrack.source === 'ambient' && htmlAudioRef.current) {
+    if (currentTrack.source !== 'youtube' && htmlAudioRef.current) {
       htmlAudioRef.current.currentTime = newTime;
     } else if (currentTrack.source === 'youtube' && ytPlayerRef.current) {
       ytPlayerRef.current.seekTo(newTime, true);
@@ -488,20 +597,37 @@ export default function AudioPlayer({
   const handleSelectTrack = (track) => {
     isSelfTriggeredRef.current = true;
     setCurrentTrack(track);
+    currentTrackRef.current = track;
     setIsPlaying(true);
+    isPlayingRef.current = true;
     setIsMiniPlayerDismissed(false);
     setCurrentTime(0);
 
     if (track.source === 'youtube') {
-      if (htmlAudioRef.current) htmlAudioRef.current.pause();
+      setShowVideoEmbed(true);
+      if (htmlAudioRef.current) {
+        htmlAudioRef.current.pause();
+        htmlAudioRef.current.src = SILENT_AUDIO;
+        htmlAudioRef.current.loop = true;
+        htmlAudioRef.current.play().catch(() => {});
+      }
       const vId = track.videoId || track.id;
       if (ytPlayerRef.current && ytPlayerRef.current.loadVideoById) {
-        ytPlayerRef.current.loadVideoById(vId);
-        ytPlayerRef.current.playVideo();
+        try {
+          ytPlayerRef.current.loadVideoById(vId);
+          ytPlayerRef.current.playVideo();
+        } catch (err) {
+          console.warn('Error loading video by ID:', err);
+        }
+      } else {
+        pendingTrackRef.current = track;
       }
     } else {
+      setShowVideoEmbed(false);
       if (ytPlayerRef.current && ytPlayerRef.current.pauseVideo) {
-        ytPlayerRef.current.pauseVideo();
+        try {
+          ytPlayerRef.current.pauseVideo();
+        } catch (err) {}
       }
       if (htmlAudioRef.current) {
         htmlAudioRef.current.src = track.url;
@@ -515,16 +641,28 @@ export default function AudioPlayer({
       track,
       currentTime: 0,
       sentAt: Date.now(),
+      initiatedBy: user?.name || 'Partner',
     });
+
+    setTimeout(() => {
+      isSelfTriggeredRef.current = false;
+    }, 500);
   };
 
   const handleCustomYoutubeSubmit = (e) => {
     e.preventDefault();
     setYoutubeError('');
-    const videoId = extractYouTubeId(customYoutubeUrl);
-    if (!videoId) {
-      setYoutubeError('Please enter a valid YouTube video link or ID');
+    const trimmedUrl = (customYoutubeUrl || '').trim();
+    if (!trimmedUrl) {
+      setYoutubeError('Please enter a YouTube link or video ID.');
       setTimeout(() => setYoutubeError(''), 4000);
+      return;
+    }
+
+    const videoId = extractYouTubeId(trimmedUrl);
+    if (!videoId) {
+      setYoutubeError('Could not recognize YouTube URL or ID. Try a link like https://youtube.com/watch?v=... or https://youtu.be/...');
+      setTimeout(() => setYoutubeError(''), 5000);
       return;
     }
 
@@ -532,17 +670,42 @@ export default function AudioPlayer({
       id: videoId,
       videoId,
       title: 'YouTube Stream',
-      artist: 'Partner Request',
-      genre: 'YouTube Video',
+      artist: user?.name ? `Requested by ${user.name}` : 'Shared Video',
+      genre: 'YouTube',
       icon: 'headphones',
       color: 'bg-rose-50 text-rose-600 border-rose-200',
       source: 'youtube',
       duration: 0,
     };
 
-    selectTrack(newTrack);
+    handleSelectTrack(newTrack);
     setCustomYoutubeUrl('');
     setShowVideoEmbed(true);
+
+    // Fetch rich video title & artist asynchronously from YouTube oEmbed
+    fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`)
+      .then((res) => {
+        if (!res.ok) throw new Error('oEmbed error');
+        return res.json();
+      })
+      .then((meta) => {
+        if (meta && meta.title) {
+          const updatedTrack = {
+            ...newTrack,
+            title: meta.title,
+            artist: meta.author_name || 'YouTube',
+          };
+          setCurrentTrack((prev) => (prev.id === videoId ? updatedTrack : prev));
+          socket.emit('audio:sync', {
+            action: 'update_metadata',
+            track: updatedTrack,
+            currentTime: ytPlayerRef.current?.getCurrentTime ? ytPlayerRef.current.getCurrentTime() : 0,
+            sentAt: Date.now(),
+            initiatedBy: user?.name,
+          });
+        }
+      })
+      .catch(() => {});
   };
 
   const handleVolumeChange = (e) => {
@@ -565,18 +728,170 @@ export default function AudioPlayer({
     }
   };
 
-  const filteredTracks = PRESET_TRACKS.filter((t) => {
-    if (selectedGenre === 'ambient') return t.source === 'ambient';
-    if (selectedGenre === 'youtube') return t.source === 'youtube';
-    return true;
-  });
+  const handleLocalFileSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const cleanTitle = file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ');
+    const trackId = `local_${Date.now()}`;
+    const localUrl = URL.createObjectURL(file);
+    activeBlobUrlsRef.current.set(trackId, localUrl);
+
+    let dur = 0;
+    try {
+      dur = await new Promise((resolve) => {
+        const tempAudio = new Audio();
+        tempAudio.src = localUrl;
+        tempAudio.onloadedmetadata = () => resolve(tempAudio.duration || 0);
+        tempAudio.onerror = () => resolve(0);
+      });
+    } catch (err) {}
+
+    const newTrack = {
+      id: trackId,
+      title: cleanTitle,
+      artist: user?.name ? `${user.name}'s Device Audio` : 'Local Storage Audio',
+      genre: 'Local Audio',
+      source: 'local',
+      url: localUrl,
+      icon: 'music',
+      color: 'bg-emerald-50 text-emerald-600 border-emerald-200',
+      duration: Math.round(dur),
+      isLocal: true,
+      filename: file.name,
+    };
+
+    // Save to user's IndexedDB storage
+    try {
+      await saveLocalTrackToDB(newTrack, file);
+      const updated = await getLocalTracksFromDB();
+      setLocalTracks(updated);
+    } catch (err) {
+      console.warn('Could not save to IndexedDB:', err);
+    }
+
+    // Play immediately locally
+    handleSelectTrack(newTrack);
+
+    // Reset input
+    e.target.value = '';
+
+    // Upload to server so partner can hear it in real-time
+    if (file.size <= 45 * 1024 * 1024) {
+      setIsUploadingLocal(true);
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          const res = await fetch('/api/audio/upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              fileName: file.name,
+              fileData: reader.result,
+              roomCode: room?.code,
+            }),
+          });
+          const data = await res.json();
+          if (data && data.url) {
+            const syncedTrack = {
+              ...newTrack,
+              url: data.url,
+            };
+            setCurrentTrack(syncedTrack);
+            socket.emit('audio:sync', {
+              action: 'change_track',
+              track: syncedTrack,
+              currentTime: htmlAudioRef.current?.currentTime || 0,
+              sentAt: Date.now(),
+              initiatedBy: user?.name,
+            });
+          }
+        } catch (uploadErr) {
+          console.log('Audio file upload to server failed:', uploadErr);
+        } finally {
+          setIsUploadingLocal(false);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handlePlaySavedLocalTrack = async (savedRecord) => {
+    let playUrl = activeBlobUrlsRef.current.get(savedRecord.id);
+    if (!playUrl && savedRecord.blob) {
+      playUrl = URL.createObjectURL(savedRecord.blob);
+      activeBlobUrlsRef.current.set(savedRecord.id, playUrl);
+    }
+
+    const track = {
+      id: savedRecord.id,
+      title: savedRecord.title,
+      artist: savedRecord.artist || 'Local Device Audio',
+      genre: 'Local Audio',
+      source: 'local',
+      url: playUrl || '',
+      icon: 'music',
+      color: 'bg-emerald-50 text-emerald-600 border-emerald-200',
+      duration: savedRecord.duration || 0,
+      isLocal: true,
+    };
+
+    handleSelectTrack(track);
+
+    // Upload & sync with partner if in a room
+    if (savedRecord.blob && !savedRecord.serverUrl) {
+      setIsUploadingLocal(true);
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          const res = await fetch('/api/audio/upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              fileName: savedRecord.filename || `${savedRecord.title}.mp3`,
+              fileData: reader.result,
+              roomCode: room?.code,
+            }),
+          });
+          const data = await res.json();
+          if (data && data.url) {
+            socket.emit('audio:sync', {
+              action: 'change_track',
+              track: { ...track, url: data.url },
+              currentTime: htmlAudioRef.current?.currentTime || 0,
+              sentAt: Date.now(),
+              initiatedBy: user?.name,
+            });
+          }
+        } catch (e) {
+        } finally {
+          setIsUploadingLocal(false);
+        }
+      };
+      reader.readAsDataURL(savedRecord.blob);
+    }
+  };
+
+  const handleDeleteLocalTrack = async (e, trackId) => {
+    e.stopPropagation();
+    try {
+      await deleteLocalTrackFromDB(trackId);
+      const updated = await getLocalTracksFromDB();
+      setLocalTracks(updated);
+      if (currentTrack.id === trackId) {
+        handleSelectTrack(DEFAULT_TRACK);
+      }
+    } catch (err) {
+      console.error('Failed to delete local track:', err);
+    }
+  };
 
   return (
     <>
       {/* Background HTML5 audio element */}
       <audio
         ref={htmlAudioRef}
-        src={currentTrack.source === 'ambient' ? currentTrack.url : SILENT_AUDIO}
+        src={currentTrack.source !== 'youtube' ? currentTrack.url : SILENT_AUDIO}
         preload="auto"
         loop={currentTrack.source === 'youtube'}
         onEnded={() => {
@@ -696,7 +1011,7 @@ export default function AudioPlayer({
               className={
                 showVideoEmbed && currentTrack.source === 'youtube'
                   ? 'w-full aspect-video rounded-2xl overflow-hidden border border-[#ede8e1] shadow-sm bg-black'
-                  : 'fixed -top-[9999px] -left-[9999px] w-[320px] h-[180px] opacity-0 pointer-events-none z-[-50]'
+                  : 'w-[1px] h-[1px] opacity-[0.01] pointer-events-none overflow-hidden absolute top-0 left-0'
               }
             >
               <div id="youtube-hidden-player" className="w-full h-full" />
@@ -783,7 +1098,7 @@ export default function AudioPlayer({
 
             {/* Re-sync Button */}
             <button
-              onClick={() => selectTrack(currentTrack)}
+              onClick={() => handleSelectTrack(currentTrack)}
               title="Re-sync playback with partner"
               className="p-2 text-zinc-400 hover:text-zinc-700 rounded-xl hover:bg-[#faf7f2] transition-colors"
             >
@@ -827,99 +1142,161 @@ export default function AudioPlayer({
           )}
         </div>
 
-        {/* Curated Duo Stations Card (Matches Persona Fleet List in screenshot) */}
+        {/* Local Storage & Device Audio Card */}
         <div className="flex-shrink-0 w-full rounded-2xl sm:rounded-3xl studio-card p-4 sm:p-5 shadow-sm box-border">
           <div className="flex items-center justify-between gap-2 mb-3">
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-lg bg-purple-50 border border-purple-200 flex items-center justify-center text-purple-600">
-                <Radio className="w-3.5 h-3.5" />
+              <div className="w-6 h-6 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
+                <HardDrive className="w-3.5 h-3.5" />
               </div>
-              <h4 className="text-xs font-bold text-zinc-900">Curated Duo Stations</h4>
+              <h4 className="text-xs font-bold text-zinc-900">Play from Local Storage</h4>
             </div>
 
-            {/* Filter Pills (Matches Overview / Persona Fleet tabs) */}
-            <div className="flex items-center gap-0.5 p-0.5 rounded-xl bg-[#f4efe8]/70 border border-[#e8e2d8]">
-              <button
-                onClick={() => setSelectedGenre('all')}
-                className={`px-2 py-0.5 text-[10px] font-semibold rounded-lg transition-all ${
-                  selectedGenre === 'all' 
-                    ? 'bg-white text-[#ff5722] shadow-xs border border-[#ffcdbc]' 
-                    : 'text-zinc-500 hover:text-zinc-900'
-                }`}
-              >
-                All
-              </button>
-              <button
-                onClick={() => setSelectedGenre('ambient')}
-                className={`px-2 py-0.5 text-[10px] font-semibold rounded-lg transition-all ${
-                  selectedGenre === 'ambient' 
-                    ? 'bg-white text-[#ff5722] shadow-xs border border-[#ffcdbc]' 
-                    : 'text-zinc-500 hover:text-zinc-900'
-                }`}
-              >
-                Lo-Fi
-              </button>
-              <button
-                onClick={() => setSelectedGenre('youtube')}
-                className={`px-2 py-0.5 text-[10px] font-semibold rounded-lg transition-all ${
-                  selectedGenre === 'youtube' 
-                    ? 'bg-white text-[#ff5722] shadow-xs border border-[#ffcdbc]' 
-                    : 'text-zinc-500 hover:text-zinc-900'
-                }`}
-              >
-                YouTube
-              </button>
-            </div>
+            {isUploadingLocal && (
+              <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1 animate-pulse">
+                <span>Syncing with partner...</span>
+              </span>
+            )}
           </div>
 
-          {/* Station List (Matches Persona list rows) */}
-          <div className="space-y-2 w-full">
-            {filteredTracks.map((track) => {
-              const isCurrent = currentTrack.id === track.id;
-              return (
-                <div
-                  key={track.id}
-                  onClick={() => selectTrack(track)}
-                  className={`p-3 rounded-2xl border cursor-pointer transition-all flex items-center justify-between w-full max-w-full ${
-                    isCurrent
-                      ? 'bg-[#fff5f2] border-[#ffcdbc] shadow-xs'
-                      : 'bg-white hover:bg-[#fbf9f6] border-[#ede8e1]'
-                  }`}
-                >
-                  <div className="flex items-center gap-3 min-w-0 mr-2 flex-1">
-                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center border flex-shrink-0 ${track.color}`}>
-                      {renderTrackIcon(track.icon, 'w-4 h-4')}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className={`text-xs font-bold truncate ${isCurrent ? 'text-[#ff5722]' : 'text-zinc-900'}`}>
-                        {track.title}
-                      </p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-[10px] text-zinc-500 truncate">
-                          {track.artist}
-                        </span>
-                        <span className="text-[9px] px-1.5 py-0.2 rounded-full font-medium bg-[#f4efe8] text-zinc-600 border border-[#e4ded5]">
-                          {track.source === 'youtube' ? 'YouTube' : 'Ambient'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+          {/* Hidden File Input & Upload Action */}
+          <input
+            type="file"
+            ref={fileInputRef}
+            accept="audio/*"
+            className="hidden"
+            onChange={handleLocalFileSelect}
+          />
 
-                  <div className="flex-shrink-0 ml-1">
-                    {isCurrent && isPlaying ? (
-                      <span className="flex items-center gap-0.5 text-[#ff5722]">
-                        <span className="w-0.5 h-3 bg-[#ff5722] animate-pulse rounded-full" />
-                        <span className="w-0.5 h-2 bg-[#ff5722] animate-pulse delay-75 rounded-full" />
-                      </span>
-                    ) : (
-                      <div className="w-7 h-7 rounded-xl bg-[#f4efe8] hover:bg-[#ff5722] hover:text-white text-zinc-600 flex items-center justify-center transition-colors">
-                        <Play className="w-3 h-3 fill-current ml-0.5" />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="w-full py-3 px-4 rounded-xl border border-dashed border-[#ede8e1] hover:border-emerald-400 bg-[#fbf9f6] hover:bg-emerald-50/50 transition-all flex items-center justify-center gap-2 text-xs font-semibold text-zinc-700 hover:text-emerald-700 mb-3 active:scale-[0.99]"
+          >
+            <Upload className="w-4 h-4 text-emerald-600" />
+            <span>Select Audio File from Your Device</span>
+          </button>
+
+          {/* Saved Local Tracks List */}
+          <div className="space-y-2 w-full">
+            {localTracks.length === 0 ? (
+              <div className="p-4 rounded-xl bg-[#faf8f5] border border-[#ede8e1] text-center">
+                <Music className="w-6 h-6 text-zinc-300 mx-auto mb-1.5" />
+                <p className="text-xs font-medium text-zinc-600">No local songs added yet</p>
+                <p className="text-[10px] text-zinc-400 mt-0.5">
+                  Pick any MP3, WAV, or audio file from your device storage to play and sync
+                </p>
+              </div>
+            ) : (
+              localTracks.map((track) => {
+                const isCurrent = currentTrack.id === track.id;
+                return (
+                  <div
+                    key={track.id}
+                    onClick={() => handlePlaySavedLocalTrack(track)}
+                    className={`p-3 rounded-2xl border cursor-pointer transition-all flex items-center justify-between w-full max-w-full ${
+                      isCurrent
+                        ? 'bg-[#ecfdf5] border-emerald-300 shadow-xs'
+                        : 'bg-white hover:bg-[#fbf9f6] border-[#ede8e1]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0 mr-2 flex-1">
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center border flex-shrink-0 bg-emerald-50 text-emerald-600 border-emerald-200">
+                        <FileAudio className="w-4 h-4" />
                       </div>
-                    )}
+                      <div className="min-w-0 flex-1">
+                        <p className={`text-xs font-bold truncate ${isCurrent ? 'text-emerald-600' : 'text-zinc-900'}`}>
+                          {track.title}
+                        </p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[10px] text-zinc-500 truncate">
+                            {track.duration > 0 ? formatTime(track.duration) : 'Local Storage'}
+                          </span>
+                          <span className="text-[9px] px-1.5 py-0.2 rounded-full font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            Local File
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-shrink-0 ml-1">
+                      {isCurrent && isPlaying ? (
+                        <span className="flex items-center gap-0.5 text-emerald-600 mr-1">
+                          <span className="w-0.5 h-3 bg-emerald-600 animate-pulse rounded-full" />
+                          <span className="w-0.5 h-2 bg-emerald-600 animate-pulse delay-75 rounded-full" />
+                        </span>
+                      ) : (
+                        <div className="w-7 h-7 rounded-xl bg-[#f4efe8] hover:bg-emerald-600 hover:text-white text-zinc-600 flex items-center justify-center transition-colors">
+                          <Play className="w-3 h-3 fill-current ml-0.5" />
+                        </div>
+                      )}
+                      <button
+                        onClick={(e) => handleDeleteLocalTrack(e, track.id)}
+                        title="Remove from local list"
+                        className="w-7 h-7 rounded-xl text-zinc-400 hover:text-red-600 hover:bg-red-50 flex items-center justify-center transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        {/* Default Playable Test Track: "blue" by yung kai */}
+        <div className="flex-shrink-0 w-full rounded-2xl sm:rounded-3xl studio-card p-4 sm:p-5 shadow-sm box-border">
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600">
+                <Heart className="w-3.5 h-3.5" />
+              </div>
+              <h4 className="text-xs font-bold text-zinc-900">Default Test Track</h4>
+            </div>
+            <span className="text-[10px] text-blue-600 font-semibold px-2 py-0.5 rounded-full bg-blue-50 border border-blue-200">
+              Ready to Play
+            </span>
+          </div>
+
+          <div
+            onClick={() => handleSelectTrack(DEFAULT_TRACK)}
+            className={`p-3 rounded-2xl border cursor-pointer transition-all flex items-center justify-between w-full max-w-full ${
+              currentTrack.id === DEFAULT_TRACK.id
+                ? 'bg-[#eff6ff] border-blue-300 shadow-xs'
+                : 'bg-white hover:bg-[#fbf9f6] border-[#ede8e1]'
+            }`}
+          >
+            <div className="flex items-center gap-3 min-w-0 mr-2 flex-1">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center border flex-shrink-0 bg-blue-50 text-blue-600 border-blue-200">
+                <Heart className="w-4 h-4 fill-current" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className={`text-xs font-bold truncate ${currentTrack.id === DEFAULT_TRACK.id ? 'text-blue-600' : 'text-zinc-900'}`}>
+                  blue
+                </p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-[10px] text-zinc-500 truncate">
+                    yung kai
+                  </span>
+                  <span className="text-[9px] px-1.5 py-0.2 rounded-full font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                    Official Audio • 3:33
+                  </span>
                 </div>
-              );
-            })}
+              </div>
+            </div>
+
+            <div className="flex-shrink-0 ml-1">
+              {currentTrack.id === DEFAULT_TRACK.id && isPlaying ? (
+                <span className="flex items-center gap-0.5 text-blue-600">
+                  <span className="w-0.5 h-3 bg-blue-600 animate-pulse rounded-full" />
+                  <span className="w-0.5 h-2 bg-blue-600 animate-pulse delay-75 rounded-full" />
+                </span>
+              ) : (
+                <div className="w-7 h-7 rounded-xl bg-[#f4efe8] hover:bg-blue-600 hover:text-white text-zinc-600 flex items-center justify-center transition-colors">
+                  <Play className="w-3 h-3 fill-current ml-0.5" />
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
