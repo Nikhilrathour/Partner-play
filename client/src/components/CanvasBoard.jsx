@@ -46,6 +46,7 @@ export default function CanvasBoard({ room, user, isActive = true }) {
   const isDrawingRef = useRef(false);
   const currentStrokeRef = useRef(null);
   const strokeHistoryRef = useRef([]);
+  const initializedRoomRef = useRef(null);
 
   // Active tool settings
   const [tool, setTool] = useState('brush'); // 'brush' | 'glow' | 'highlighter' | 'eraser' | 'stamp'
@@ -216,9 +217,18 @@ export default function CanvasBoard({ room, user, isActive = true }) {
     }
   }, [isActive, handleResize]);
 
-  // Load initial canvas state from room
+  // Load initial canvas state from room (once per room code only)
+  // After the initial load, all canvas updates come through socket events
+  // (canvas:stroke, canvas:clear, canvas:history_sync) which directly update strokeHistoryRef.
+  // Re-running this on every `room` reference change would overwrite live strokes
+  // with stale room.canvasState (which React state never updates via socket events).
   useEffect(() => {
-    if (room && room.canvasState) {
+    if (!room) {
+      initializedRoomRef.current = null;
+      return;
+    }
+    if (room.canvasState && initializedRoomRef.current !== room.code) {
+      initializedRoomRef.current = room.code;
       strokeHistoryRef.current = [...room.canvasState];
       setHasStrokes(room.canvasState.length > 0);
       redrawCanvas();

@@ -6,16 +6,30 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.os.Build;
+import android.Manifest;
+
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.annotation.PermissionCallback;
+import com.getcapacitor.PermissionState;
 
-@CapacitorPlugin(name = "WidgetBridge")
+import com.google.firebase.messaging.FirebaseMessaging;
+
+@CapacitorPlugin(name = "WidgetBridge", permissions = {
+    @Permission(strings = { Manifest.permission.POST_NOTIFICATIONS }, alias = "notifications")
+})
 public class WidgetBridgePlugin extends Plugin {
+
+    private static final int NOTIFICATION_PERMISSION_REQUEST = 1001;
 
     @PluginMethod
     public void saveWidgetRoomCode(PluginCall call) {
@@ -111,6 +125,82 @@ public class WidgetBridgePlugin extends Plugin {
 
         JSObject ret = new JSObject();
         ret.put("success", true);
+        call.resolve(ret);
+    }
+
+    /**
+     * Returns the FCM device token stored by FCMService.
+     * Falls back to requesting a fresh token from FirebaseMessaging if not cached.
+     */
+    @PluginMethod
+    public void getFCMToken(PluginCall call) {
+        // First try reading the token saved by FCMService.onNewToken()
+        Context context = getContext();
+        SharedPreferences prefs = context.getSharedPreferences(FCMService.PREFS_FCM, Context.MODE_PRIVATE);
+        String cachedToken = prefs.getString(FCMService.KEY_FCM_TOKEN, null);
+
+        if (cachedToken != null && !cachedToken.isEmpty()) {
+            JSObject ret = new JSObject();
+            ret.put("token", cachedToken);
+            call.resolve(ret);
+            return;
+        }
+
+        // If no cached token, request one from Firebase
+        try {
+            FirebaseMessaging.getInstance().getToken().addOnCompleteListener(task -> {
+                if (task.isSuccessful() && task.getResult() != null) {
+                    String token = task.getResult();
+                    // Cache it
+                    prefs.edit().putString(FCMService.KEY_FCM_TOKEN, token).apply();
+
+                    JSObject ret = new JSObject();
+                    ret.put("token", token);
+                    call.resolve(ret);
+                } else {
+                    JSObject ret = new JSObject();
+                    ret.put("token", "");
+                    ret.put("error", "Could not retrieve FCM token");
+                    call.resolve(ret);
+                }
+            });
+        } catch (Exception e) {
+            JSObject ret = new JSObject();
+            ret.put("token", "");
+            ret.put("error", e.getMessage());
+            call.resolve(ret);
+        }
+    }
+
+    /**
+     * Requests the POST_NOTIFICATIONS runtime permission on Android 13+.
+     * On older versions, returns granted=true immediately.
+     */
+    @PluginMethod
+    public void requestNotificationPermission(PluginCall call) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.POST_NOTIFICATIONS)
+                    == PackageManager.PERMISSION_GRANTED) {
+                JSObject ret = new JSObject();
+                ret.put("granted", true);
+                call.resolve(ret);
+            } else {
+                // Use Capacitor's built-in permission system
+                requestPermissionForAlias("notifications", call, "handleNotificationPermissionResult");
+            }
+        } else {
+            // Pre-Android 13: no runtime permission needed
+            JSObject ret = new JSObject();
+            ret.put("granted", true);
+            call.resolve(ret);
+        }
+    }
+
+    @PermissionCallback
+    private void handleNotificationPermissionResult(PluginCall call) {
+        boolean granted = getPermissionState("notifications") == PermissionState.GRANTED;
+        JSObject ret = new JSObject();
+        ret.put("granted", granted);
         call.resolve(ret);
     }
 }

@@ -5,7 +5,7 @@ import AudioPlayer from './components/AudioPlayer';
 import RoomModal from './components/RoomModal';
 import ReactionsOverlay from './components/ReactionsOverlay';
 import WhisperNotes from './components/WhisperNotes';
-import { socket, socketJoinRoom, getServerUrl, getPersistentUserId } from './services/socket';
+import { socket, socketJoinRoom, getServerUrl, getPersistentUserId, registerFCMToken } from './services/socket';
 import { Download, X, Smartphone, ArrowRight } from 'lucide-react';
 
 const STORAGE_ROOM_KEY = 'duo_partner_room_code';
@@ -69,6 +69,7 @@ export default function App() {
           localStorage.setItem(STORAGE_NAME_KEY, res.room.user.name);
           localStorage.setItem(STORAGE_COLOR_KEY, res.room.user.color);
           syncWidgetRoom(res.room.code);
+          registerFCMToken(res.room.code, res.room.user.id || getPersistentUserId(), res.room.user.name);
 
           const url = new URL(window.location.href);
           url.searchParams.set('room', res.room.code);
@@ -130,6 +131,7 @@ export default function App() {
           if (res && res.success && res.room) {
             setRoom(res.room);
             setUser(res.room.user);
+            registerFCMToken(res.room.code, res.room.user.id || getPersistentUserId(), res.room.user.name);
           }
         });
         // Also ensure canvas has freshest strokes
@@ -195,6 +197,7 @@ export default function App() {
     localStorage.setItem(STORAGE_NAME_KEY, roomData.user.name);
     localStorage.setItem(STORAGE_COLOR_KEY, roomData.user.color);
     syncWidgetRoom(roomData.code);
+    registerFCMToken(roomData.code, roomData.user.id || getPersistentUserId(), roomData.user.name);
   };
 
   const handleUnpair = () => {

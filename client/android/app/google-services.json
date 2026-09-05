@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "679494049517",
+    "project_id": "nikhana-play",
+    "storage_bucket": "nikhana-play.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:679494049517:android:caf0ae7896c50b7cc5f6e4",
+        "android_client_info": {
+          "package_name": "com.partnerplay.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCDBWkbuImN8X4rBp1w-TjWUw82gcuGcX0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

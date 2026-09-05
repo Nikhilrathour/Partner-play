@@ -180,3 +180,39 @@ export function measureLatency(callback) {
   };
   socket.on('latency:pong', onPong);
 }
+
+// FCM Push Notification token registration
+// Reads the device FCM token from the native Capacitor bridge and registers it with the server
+export async function registerFCMToken(roomCode, userId, userName) {
+  if (typeof window === 'undefined' || !window.Capacitor?.isNativePlatform?.()) {
+    return; // Only works on Android APK, not in browser
+  }
+
+  try {
+    // Request notification permission first (Android 13+)
+    if (window.Capacitor?.Plugins?.WidgetBridge?.requestNotificationPermission) {
+      await window.Capacitor.Plugins.WidgetBridge.requestNotificationPermission();
+    }
+
+    // Get the FCM token from the native layer
+    const result = await window.Capacitor.Plugins.WidgetBridge.getFCMToken();
+    const token = result?.token;
+    if (!token) return;
+
+    // Register via socket (primary)
+    if (socket.connected) {
+      socket.emit('fcm:register', { token, userId });
+    }
+
+    // Also register via REST (fallback, ensures token is saved even if socket drops)
+    fetch(`${getServerUrl()}/api/room/${roomCode}/fcm/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, token, userName }),
+    }).catch(() => {});
+
+  } catch (err) {
+    // Silent fail — FCM is a nice-to-have, not critical
+    console.log('[FCM] Token registration skipped:', err.message || err);
+  }
+}

@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
+const admin = require('firebase-admin');
 
 const fs = require('fs');
 const path = require('path');
@@ -12,6 +13,30 @@ process.on('uncaughtException', (err) => {
 process.on('unhandledRejection', (reason, promise) => {
   console.error('[Unhandled Rejection]', reason);
 });
+
+// Firebase Admin SDK initialization for FCM push notifications
+let fcmEnabled = false;
+try {
+  const serviceAccountEnv = process.env.FIREBASE_SERVICE_ACCOUNT;
+  if (serviceAccountEnv) {
+    let serviceAccount;
+    // Support both file path and inline JSON string
+    if (serviceAccountEnv.trim().startsWith('{')) {
+      serviceAccount = JSON.parse(serviceAccountEnv);
+    } else {
+      serviceAccount = JSON.parse(fs.readFileSync(serviceAccountEnv, 'utf8'));
+    }
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+    });
+    fcmEnabled = true;
+    console.log('[FCM] Firebase Admin initialized — push notifications enabled');
+  } else {
+    console.log('[FCM] No FIREBASE_SERVICE_ACCOUNT env var — push notifications disabled');
+  }
+} catch (err) {
+  console.error('[FCM] Failed to initialize Firebase Admin:', err.message);
+}
 
 const app = express();
 app.use(cors({
@@ -64,6 +89,81 @@ const io = new Server(server, {
 
 // In-memory room store
 const rooms = new Map();
+
+// In-memory FCM token store: userId -> { token, roomCode, userName }
+const fcmTokens = new Map();
+
+// Throttle drawing notifications (max 1 per 30s per room)
+const lastDrawingNotification = new Map();
+const DRAWING_NOTIFICATION_THROTTLE_MS = 30000;
+
+// Send FCM notification to offline partners in a room
+async function sendFCMToOfflinePartners(roomCode, senderUserId, notification, data = {}) {
+  if (!fcmEnabled) return;
+  const room = rooms.get(roomCode);
+  if (!room) return;
+
+  // Find partners who have FCM tokens but are NOT currently connected via socket
+  const connectedSocketIds = new Set();
+  const ioRoom = io.sockets.adapter.rooms.get(roomCode);
+  if (ioRoom) {
+    ioRoom.forEach((sid) => connectedSocketIds.add(sid));
+  }
+
+  const tokensToNotify = [];
+  for (const member of room.members) {
+    // Skip the sender
+    if (member.id === senderUserId) continue;
+    // Skip members with active socket connections
+    if (member.socketId && connectedSocketIds.has(member.socketId)) continue;
+    // Find their FCM token
+    const tokenEntry = fcmTokens.get(member.id);
+    if (tokenEntry && tokenEntry.token) {
+      tokensToNotify.push(tokenEntry.token);
+    }
+  }
+
+  if (tokensToNotify.length === 0) return;
+
+  for (const token of tokensToNotify) {
+    try {
+      await admin.messaging().send({
+        token,
+        notification: {
+          title: notification.title,
+          body: notification.body,
+        },
+        data: {
+          roomCode,
+          type: data.type || 'general',
+          ...data,
+        },
+        android: {
+          priority: 'high',
+          notification: {
+            channelId: 'partner_play_channel',
+            icon: 'ic_notification',
+            color: '#ff5722',
+            clickAction: 'FLUTTER_NOTIFICATION_CLICK',
+          },
+        },
+      });
+    } catch (err) {
+      if (err.code === 'messaging/registration-token-not-registered' ||
+          err.code === 'messaging/invalid-registration-token') {
+        // Token is stale, remove it
+        for (const [userId, entry] of fcmTokens.entries()) {
+          if (entry.token === token) {
+            fcmTokens.delete(userId);
+            break;
+          }
+        }
+      } else {
+        console.error('[FCM] Send error:', err.code || err.message);
+      }
+    }
+  }
+}
 
 // In-memory widget thumbnail store (code -> { buffer, updatedAt, authorName })
 const roomThumbnails = new Map();
@@ -277,6 +377,25 @@ app.get('/api/room/:code/widget.json', (req, res) => {
     authorName: thumbnail ? thumbnail.authorName : null,
     memberCount: room ? room.members.length : 0,
   });
+});
+
+// REST FCM token registration (fallback for mobile when socket isn't ready)
+app.post('/api/room/:code/fcm/register', (req, res) => {
+  const code = req.params.code.toUpperCase();
+  const { userId, token, userName } = req.body;
+
+  if (!userId || !token) {
+    return res.status(400).json({ error: 'userId and token are required' });
+  }
+
+  fcmTokens.set(userId, {
+    token,
+    roomCode: code,
+    userName: userName || 'Partner',
+  });
+
+  console.log(`[FCM REST] Token registered for user ${userId} in room ${code}`);
+  return res.json({ success: true, userId, roomCode: code });
 });
 
 // Music Widget Metadata endpoint: returns live music state
@@ -537,6 +656,18 @@ io.on('connection', (socket) => {
     }
   });
 
+  // FCM token registration: client sends its Firebase Cloud Messaging token
+  socket.on('fcm:register', ({ token, userId: tokenUserId }) => {
+    const uid = tokenUserId || currentUser?.id;
+    if (!uid || !token) return;
+    fcmTokens.set(uid, {
+      token,
+      roomCode: currentRoomCode,
+      userName: currentUser?.name || 'Partner',
+    });
+    console.log(`[FCM] Token registered for user ${uid} in room ${currentRoomCode}`);
+  });
+
   // Canvas: Stroke stream (batch or individual)
   socket.on('canvas:stroke', (strokeData) => {
     if (!currentRoomCode) return;
@@ -553,6 +684,17 @@ io.on('connection', (socket) => {
 
     // Broadcast stroke immediately to partner
     socket.to(currentRoomCode).emit('canvas:stroke', strokeData);
+
+    // Send FCM to offline partners (throttled: max 1 per 30s per room)
+    const now = Date.now();
+    const lastSent = lastDrawingNotification.get(currentRoomCode) || 0;
+    if (now - lastSent > DRAWING_NOTIFICATION_THROTTLE_MS) {
+      lastDrawingNotification.set(currentRoomCode, now);
+      sendFCMToOfflinePartners(currentRoomCode, currentUser?.id, {
+        title: '🎨 New Drawing!',
+        body: `${currentUser?.name || 'Your partner'} drew something new — tap to see!`,
+      }, { type: 'drawing' });
+    }
   });
 
   // Canvas: Clear
@@ -650,6 +792,16 @@ io.on('connection', (socket) => {
       initiatedBy: currentUser?.name || data.initiatedBy || 'Your partner',
       triggeredBy: currentUser?.name || data.initiatedBy || 'Your partner',
     });
+
+    // Send FCM push to offline partner for music events
+    if (action === 'play' || action === 'change_track') {
+      const trackTitle = room.currentTrack.title || 'a song';
+      const trackArtist = room.currentTrack.artist || '';
+      sendFCMToOfflinePartners(currentRoomCode, currentUser?.id, {
+        title: '🎵 Music Playing!',
+        body: `${currentUser?.name || 'Your partner'} started playing "${trackTitle}"${trackArtist ? ' by ' + trackArtist : ''} — tap to listen together!`,
+      }, { type: 'music', action });
+    }
   });
 
   // Request latest playhead
@@ -704,6 +856,13 @@ io.on('connection', (socket) => {
 
     room.notes.push(note);
     io.in(currentRoomCode).emit('note:added', note);
+
+    // Send FCM push to offline partner for new notes
+    const previewText = text.length > 50 ? text.substring(0, 50) + '…' : text;
+    sendFCMToOfflinePartners(currentRoomCode, currentUser?.id, {
+      title: '💌 New Whisper Note!',
+      body: `${currentUser?.name || 'Your partner'}: "${previewText}"`,
+    }, { type: 'note' });
   });
 
   socket.on('note:delete', (noteId) => {

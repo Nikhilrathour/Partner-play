@@ -20,5 +20,7 @@ client/android/app/*.apk
 .DS_Store
 Thumbs.db
 
-# Environment variables
+# Environment variables & secrets
 .env
+*firebase-adminsdk*.json
+*service-account*.json
