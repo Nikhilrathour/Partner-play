@@ -2,9 +2,14 @@
   "name": "partner-play",
   "version": "1.0.0",
   "description": "Shared real-time canvas & synchronized audio for couples",
+  "private": true,
+  "workspaces": [
+    "server",
+    "client"
+  ],
   "scripts": {
+    "build": "npm --prefix client install --include=dev && npm --prefix client run build && npm --prefix server install",
     "start": "node server/index.js",
-    "dev": "npm --prefix client run dev",
-    "build": "npm --prefix client run build"
+    "dev": "npm --prefix client run dev"
   }
 }
