@@ -68,8 +68,9 @@ export default function RoomModal({ isOpen, onClose, onJoined, currentRoomCode }
   // Handle joining room
   const handleJoin = async (e) => {
     e.preventDefault();
-    if (!roomCodeInput.trim()) {
-      setErrorMessage('Please enter a 6-character room code.');
+    const cleanCode = (roomCodeInput || '').replace(/\s+/g, '').toUpperCase();
+    if (!cleanCode) {
+      setErrorMessage('Please enter your partner\'s studio code.');
       return;
     }
 
@@ -78,7 +79,7 @@ export default function RoomModal({ isOpen, onClose, onJoined, currentRoomCode }
 
     try {
       const res = await socketJoinRoom(
-        roomCodeInput.trim(),
+        cleanCode,
         userName.trim() || 'Partner 2',
         userColor
       );
@@ -213,28 +214,11 @@ export default function RoomModal({ isOpen, onClose, onJoined, currentRoomCode }
               <input
                 type="text"
                 value={roomCodeInput}
-                onChange={(e) => setRoomCodeInput(e.target.value.toUpperCase())}
-                placeholder="e.g. PAIR99"
+                onChange={(e) => setRoomCodeInput(e.target.value.replace(/\s+/g, '').toUpperCase())}
+                placeholder="e.g. DUO33"
                 maxLength={8}
                 className="w-full px-4 py-2.5 rounded-xl bg-[#fbf9f6] border border-[#ede8e1] text-sm font-mono font-bold tracking-widest text-center text-[#18181b] placeholder:text-[#a1a1aa] focus:outline-none focus:border-[#ff5722] focus:ring-1 focus:ring-[#ff5722] uppercase transition-colors"
                 required
-              />
-            </div>
-          )}
-
-          {/* Custom Room Code (Optional in Create Tab) */}
-          {activeTab === 'create' && (
-            <div>
-              <label className="block text-xs font-bold text-[#18181b] mb-1.5">
-                Custom Studio Code <span className="text-[#a1a1aa] font-normal">(Optional)</span>
-              </label>
-              <input
-                type="text"
-                value={customCreateCode}
-                onChange={(e) => setCustomCreateCode(e.target.value.toUpperCase())}
-                placeholder="Leave blank for auto-generated code"
-                maxLength={8}
-                className="w-full px-4 py-2.5 rounded-xl bg-[#fbf9f6] border border-[#ede8e1] text-xs text-[#18181b] placeholder:text-[#a1a1aa] focus:outline-none focus:border-[#ff5722] uppercase font-mono transition-colors"
               />
             </div>
           )}

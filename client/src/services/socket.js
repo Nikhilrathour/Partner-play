@@ -59,11 +59,23 @@ export const socket = io(getServerUrl(), {
   timeout: 10000,
 });
 
+export function getPersistentUserId() {
+  if (typeof window === 'undefined') return 'user_temp';
+  let id = localStorage.getItem('nikhana_play_user_id');
+  if (!id) {
+    id = 'user_' + Math.random().toString(36).substring(2, 9);
+    localStorage.setItem('nikhana_play_user_id', id);
+  }
+  return id;
+}
+
 // Helper for room creation with 4-second socket timeout + resilient HTTP REST fallback
 export async function socketCreateRoom(userName, userColor, requestedCode) {
   if (!socket.connected) {
     socket.connect();
   }
+
+  const userId = getPersistentUserId();
 
   // 1. Try Socket.io first
   const socketPromise = new Promise((resolve, reject) => {
@@ -71,7 +83,7 @@ export async function socketCreateRoom(userName, userColor, requestedCode) {
       reject(new Error('SOCKET_TIMEOUT'));
     }, 4000);
 
-    socket.emit('room:create', { userName, userColor, requestedCode }, (response) => {
+    socket.emit('room:create', { userName, userColor, requestedCode, userId }, (response) => {
       clearTimeout(timer);
       resolve(response);
     });
@@ -85,13 +97,13 @@ export async function socketCreateRoom(userName, userColor, requestedCode) {
       const res = await fetch(`${getServerUrl()}/api/room/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userName, userColor, requestedCode }),
+        body: JSON.stringify({ userName, userColor, requestedCode, userId }),
       });
       if (res.ok) {
         const data = await res.json();
         // Notify socket to join room once connected
         if (data.room?.code) {
-          socket.emit('room:join', { code: data.room.code, userName, userColor });
+          socket.emit('room:join', { code: data.room.code, userName, userColor, userId });
         }
         return data;
       } else {
@@ -113,12 +125,15 @@ export async function socketJoinRoom(code, userName, userColor) {
     socket.connect();
   }
 
+  const userId = getPersistentUserId();
+  const cleanCode = (code || '').replace(/\s+/g, '').toUpperCase();
+
   const socketPromise = new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       reject(new Error('SOCKET_TIMEOUT'));
     }, 4000);
 
-    socket.emit('room:join', { code, userName, userColor }, (response) => {
+    socket.emit('room:join', { code: cleanCode, userName, userColor, userId }, (response) => {
       clearTimeout(timer);
       resolve(response);
     });
@@ -131,12 +146,12 @@ export async function socketJoinRoom(code, userName, userColor) {
       const res = await fetch(`${getServerUrl()}/api/room/join`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, userName, userColor }),
+        body: JSON.stringify({ code: cleanCode, userName, userColor, userId }),
       });
       if (res.ok) {
         const data = await res.json();
         if (data.room?.code) {
-          socket.emit('room:join', { code: data.room.code, userName, userColor });
+          socket.emit('room:join', { code: data.room.code, userName, userColor, userId });
         }
         return data;
       } else {

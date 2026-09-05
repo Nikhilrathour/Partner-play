@@ -4,7 +4,10 @@ const { Server } = require('socket.io');
 const cors = require('cors');
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+}));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use((err, req, res, next) => {
@@ -20,6 +23,9 @@ const io = new Server(server, {
     origin: '*',
     methods: ['GET', 'POST'],
   },
+  allowEIO3: true,
+  pingTimeout: 20000,
+  pingInterval: 25000,
 });
 
 // In-memory room store
@@ -54,6 +60,21 @@ app.get('/health', (req, res) => {
     roomCodes: Array.from(rooms.keys()),
     timestamp: Date.now(),
   });
+});
+
+// REST debug endpoint: shows live state of all rooms
+app.get('/api/debug', (req, res) => {
+  const result = {};
+  for (const [code, r] of rooms.entries()) {
+    result[code] = {
+      memberCount: r.members.length,
+      members: r.members.map(m => ({ id: m.id, name: m.name, socketId: m.socketId })),
+      createdAt: r.createdAt,
+      strokesCount: r.canvasState.length,
+      notesCount: r.notes.length,
+    };
+  }
+  res.json({ activeRooms: rooms.size, rooms: result });
 });
 
 app.get('/api/room/:code', (req, res) => {
@@ -148,18 +169,20 @@ app.post('/api/room/join', (req, res) => {
   }
 
   const trimmedName = (userName || '').trim();
-  const existingIndex = room.members.findIndex(m => trimmedName && m.name.toLowerCase() === trimmedName.toLowerCase());
+  const { userId } = req.body;
+  const existingIndex = room.members.findIndex(m => userId ? m.id === userId : false);
   let newUser;
 
   if (existingIndex !== -1) {
     newUser = {
       ...room.members[existingIndex],
+      name: trimmedName || room.members[existingIndex].name,
       color: userColor || room.members[existingIndex].color,
     };
     room.members[existingIndex] = newUser;
   } else {
     newUser = {
-      id: 'user_' + Math.random().toString(36).substring(2, 9),
+      id: userId || ('user_' + Math.random().toString(36).substring(2, 9)),
       name: trimmedName || `Partner ${room.members.length + 1}`,
       color: userColor || (room.members.length === 1 ? '#7c3aed' : '#0284c7'),
       isHost: room.members.length === 0,
@@ -351,20 +374,22 @@ io.on('connection', (socket) => {
 
     const trimmedName = (userName || '').trim();
     const existingIndex = room.members.findIndex(
-      (m) => (trimmedName && m.name.toLowerCase() === trimmedName.toLowerCase()) || m.id === socket.id
+      (m) => (userId && m.id === userId) || m.socketId === socket.id
     );
     let newUser;
 
     if (existingIndex !== -1) {
       newUser = {
         ...room.members[existingIndex],
-        id: socket.id,
+        socketId: socket.id,
+        name: trimmedName || room.members[existingIndex].name,
         color: userColor || room.members[existingIndex].color,
       };
       room.members[existingIndex] = newUser;
     } else {
       newUser = {
-        id: socket.id,
+        id: userId || ('user_' + Math.random().toString(36).substring(2, 9)),
+        socketId: socket.id,
         name: trimmedName || `Partner ${room.members.length + 1}`,
         color: userColor || (room.members.length === 1 ? '#a855f7' : '#38bdf8'),
         isHost: room.members.length === 0,
@@ -376,6 +401,7 @@ io.on('connection', (socket) => {
     socket.join(formattedCode);
     currentRoomCode = formattedCode;
     currentUser = newUser;
+    console.log(`[Room Join] Socket ${socket.id} joined ${formattedCode} as "${newUser.name}". Total members: ${room.members.length}`);
 
     // Calculate current live playhead for audio
     const now = Date.now();
@@ -591,11 +617,13 @@ io.on('connection', (socket) => {
   });
 
   // Disconnect handler
-  socket.on('disconnect', () => {
+  socket.on('disconnect', (reason) => {
+    console.log(`[Socket Disconnected] ${socket.id} (reason: ${reason})`);
     if (currentRoomCode) {
       const room = rooms.get(currentRoomCode);
       if (room) {
-        room.members = room.members.filter((m) => m.id !== socket.id);
+        room.members = room.members.filter((m) => m.socketId !== socket.id && m.id !== socket.id);
+        console.log(`[Room Member Left] ${currentRoomCode}. Remaining members: ${room.members.length}`);
 
         if (room.members.length === 0) {
           // Keep couple studio persistent for 7 days even if both partners close the app

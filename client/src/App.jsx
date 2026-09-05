@@ -5,7 +5,7 @@ import AudioPlayer from './components/AudioPlayer';
 import RoomModal from './components/RoomModal';
 import ReactionsOverlay from './components/ReactionsOverlay';
 import WhisperNotes from './components/WhisperNotes';
-import { socket, socketJoinRoom, getServerUrl } from './services/socket';
+import { socket, socketJoinRoom, getServerUrl, getPersistentUserId } from './services/socket';
 import { Download, X, Smartphone, ArrowRight } from 'lucide-react';
 
 const STORAGE_ROOM_KEY = 'duo_partner_room_code';
@@ -125,6 +125,7 @@ export default function App() {
           code: currentRoom.code,
           userName: currentUser.name,
           userColor: currentUser.color || '#ff5722',
+          userId: currentUser.id || getPersistentUserId(),
         }, (res) => {
           if (res && res.success && res.room) {
             setRoom(res.room);
