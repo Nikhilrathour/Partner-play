@@ -445,10 +445,10 @@ export default function CanvasBoard({ room, user, isActive = true }) {
     expCtx.font = '600 13px "Plus Jakarta Sans", sans-serif';
     expCtx.fillStyle = '#ff5722';
     expCtx.textAlign = 'right';
-    expCtx.fillText('Created together on Duo Studio • Partner Play 🧡', exportCanvas.width - 20, exportCanvas.height - 20);
+    expCtx.fillText('Created together on Nikhana Play 🧡', exportCanvas.width - 20, exportCanvas.height - 20);
 
     const link = document.createElement('a');
-    link.download = `partner-play-studio-${new Date().toISOString().slice(0, 10)}.png`;
+    link.download = `nikhana-play-${new Date().toISOString().slice(0, 10)}.png`;
     link.href = exportCanvas.toDataURL('image/png');
     link.click();
 

@@ -93,9 +93,9 @@ export default function Navbar({
       <header className="h-14 sm:h-16 px-3 sm:px-6 flex items-center justify-between border-b border-[#ede8e1] bg-white/80 backdrop-blur-md relative z-30 flex-shrink-0 w-full max-w-full box-border">
         {/* Left: Brand */}
         <div className="flex items-center gap-2 sm:gap-2.5 flex-shrink-0">
-          <AppIcon name="app" className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl shadow-xs" alt="Partner Play" />
+          <AppIcon name="app" className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl shadow-xs" alt="Nikhana Play" />
           <h1 className="text-sm sm:text-base font-bold tracking-tight text-zinc-900">
-            Partner Play
+            Nikhana Play
           </h1>
         </div>
 

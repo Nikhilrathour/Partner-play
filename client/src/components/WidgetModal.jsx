@@ -158,7 +158,7 @@ export default function WidgetModal({ isOpen, onClose, room, user }) {
               {/* Bottom Widget Bar */}
               <div className="relative z-10 flex items-center justify-between text-[10px]">
                 <span className="bg-black/60 backdrop-blur-md text-white px-2 py-0.5 rounded-lg text-[9px]">
-                  Partner Play ❤️
+                  Nikhana Play ❤️
                 </span>
                 <span className="text-zinc-500 font-mono text-[9px]">
                   Tap to draw
@@ -174,7 +174,7 @@ export default function WidgetModal({ isOpen, onClose, room, user }) {
               <div className="space-y-1">
                 <p className="font-bold">Android Home Screen Widget</p>
                 <p className="text-[11px] text-amber-800 leading-relaxed">
-                  To pin the widget directly in 1 tap, open Partner Play inside the Android APK app. On regular mobile browsers, long press your phone home screen and select Widgets &rarr; Partner Play.
+                  To pin the widget directly in 1 tap, open Nikhana Play inside the Android APK app. On regular mobile browsers, long press your phone home screen and select Widgets &rarr; Nikhana Play.
                 </p>
               </div>
             </div>
@@ -212,10 +212,10 @@ export default function WidgetModal({ isOpen, onClose, room, user }) {
               </h3>
               <ol className="space-y-2 text-xs text-zinc-700 list-decimal list-inside bg-white p-3.5 rounded-2xl border border-[#ede8e1] leading-relaxed">
                 <li>
-                  <strong>Install the Android App:</strong> Build or install the Partner Play Android APK on your phone.
+                  <strong>Install the Android App:</strong> Build or install the Nikhana Play Android APK on your phone.
                 </li>
                 <li>
-                  <strong>Add the Widget:</strong> On your Android home screen, <em>long press on an empty space</em> &rarr; tap <strong>Widgets</strong> &rarr; find <strong>Partner Play</strong>.
+                  <strong>Add the Widget:</strong> On your Android home screen, <em>long press on an empty space</em> &rarr; tap <strong>Widgets</strong> &rarr; find <strong>Nikhana Play</strong>.
                 </li>
                 <li>
                   <strong>Place & Resize:</strong> Drag it to your home screen (it can be 2x2, 3x3, or 4x4).

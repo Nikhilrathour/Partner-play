@@ -128,7 +128,7 @@ export default function RoomModal({ isOpen, onClose, onJoined, currentRoomCode }
             <Heart className="w-7 h-7 fill-[#ff5722] animate-pulse" />
           </div>
           <h2 className="text-2xl font-bold tracking-tight text-[#18181b]">
-            Partner Play
+            Nikhana Play
           </h2>
           <p className="text-sm text-[#71717a] mt-1">
             A shared creative space for you &amp; your partner

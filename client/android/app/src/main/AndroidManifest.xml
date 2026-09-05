@@ -35,11 +35,11 @@
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
 
-        <!-- Partner Play Home Screen Widget Receiver -->
+        <!-- Nikhana Play Home Screen Widget Receiver -->
         <receiver
             android:name=".PartnerWidgetProvider"
             android:exported="true"
-            android:label="Partner Play">
+            android:label="Nikhana Play">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
                 <action android:name="com.partnerplay.app.ACTION_REFRESH_WIDGET" />
