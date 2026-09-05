@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { socketCreateRoom, socketJoinRoom, getServerUrl, setCustomServerUrl } from '../services/socket';
 import { Heart, Sparkles, Copy, Check, ArrowRight } from 'lucide-react';
+import AppIcon from './AppIcon';
 
 const AVATAR_COLORS = ['#ff5722', '#7c3aed', '#0284c7', '#f43f5e', '#059669', '#f59e0b'];
 
@@ -275,7 +276,7 @@ export default function RoomModal({ isOpen, onClose, onJoined, currentRoomCode }
         {/* Server Connection Status & Config */}
         <div className="mt-4 pt-3 border-t border-[#ede8e1] flex items-center justify-between text-[11px] text-zinc-500">
           <span className="flex items-center gap-1.5 truncate max-w-[240px]">
-            <span className="w-2 h-2 shrink-0 rounded-full bg-emerald-500 animate-pulse"></span>
+            <AppIcon name="settings" className="w-4 h-4 shrink-0" />
             <span className="truncate">Server: <span className="font-mono text-zinc-700">{getServerUrl().replace(/^https?:\/\//, '')}</span></span>
           </span>
           <button

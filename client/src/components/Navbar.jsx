@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { socket } from '../services/socket';
 import WidgetModal from './WidgetModal';
+import AppIcon from './AppIcon';
 
 export default function Navbar({ 
   room, 
@@ -87,9 +88,7 @@ export default function Navbar({
       <header className="h-14 sm:h-16 px-3 sm:px-6 flex items-center justify-between border-b border-[#ede8e1] bg-white/80 backdrop-blur-md relative z-30 flex-shrink-0 w-full max-w-full box-border">
         {/* Left: Brand & Live Sync Badge */}
         <div className="flex items-center gap-2 sm:gap-2.5 flex-shrink-0">
-          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-[#ff5722] to-[#ff6b35] flex items-center justify-center shadow-sm text-white flex-shrink-0">
-            <Heart className="w-4 h-4 fill-white" />
-          </div>
+          <AppIcon name="app" className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl shadow-xs" alt="Partner Play" />
           <div className="flex items-center gap-1.5 sm:gap-2">
             <span className="text-xs text-zinc-400 hidden sm:inline">Duo Studio</span>
             <span className="text-xs text-zinc-300 hidden sm:inline">&rsaquo;</span>
@@ -117,7 +116,7 @@ export default function Navbar({
                 : 'text-zinc-600 hover:text-zinc-900 hover:bg-white/50'
             }`}
           >
-            <Paintbrush className="w-3.5 h-3.5" />
+            <AppIcon name="paintbrush" className="w-4 h-4" />
             <span>Canvas</span>
           </button>
 
@@ -131,7 +130,7 @@ export default function Navbar({
                 : 'text-zinc-600 hover:text-zinc-900 hover:bg-white/50'
             }`}
           >
-            <Music className="w-3.5 h-3.5" />
+            <AppIcon name="music" className="w-4 h-4" />
             <span>Music Lounge</span>
             {isPlaying && (
               <span className="flex items-center gap-0.5 ml-0.5">
@@ -151,7 +150,7 @@ export default function Navbar({
                 : 'text-zinc-600 hover:text-zinc-900 hover:bg-white/50'
             }`}
           >
-            <StickyNote className="w-3.5 h-3.5" />
+            <AppIcon name="stickynote" className="w-4 h-4" />
             <span>Notes</span>
             {notesCount > 0 && (
               <span className="px-1.5 py-0.2 rounded-full bg-[#fff3ef] text-[#ff5722] border border-[#ffcdbc] text-[10px] font-bold">
@@ -167,9 +166,9 @@ export default function Navbar({
           <button
             onClick={() => setIsWidgetModalOpen(true)}
             title="Android Home Screen Widget"
-            className="flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-xl bg-gradient-to-r from-[#fff3ef] to-[#ffece6] hover:bg-[#ffe8e0] text-[#ff5722] border border-[#ffcdbc] shadow-xs text-xs font-semibold transition-all"
+            className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-xl bg-gradient-to-r from-[#fff3ef] to-[#ffece6] hover:bg-[#ffe8e0] text-[#ff5722] border border-[#ffcdbc] shadow-xs text-xs font-semibold transition-all"
           >
-            <Smartphone className="w-3.5 h-3.5" />
+            <AppIcon name="smartphone" className="w-4 h-4" />
             <span className="hidden sm:inline">Widget</span>
           </button>
 
@@ -278,7 +277,7 @@ export default function Navbar({
                 }}
                 className="w-full py-2 px-2.5 rounded-xl bg-[#fff3ef] text-[#ff5722] border border-[#ffcdbc] font-bold flex items-center gap-2 hover:bg-[#ffe8e0] transition-colors"
               >
-                <Smartphone className="w-4 h-4" />
+                <AppIcon name="smartphone" className="w-4 h-4" />
                 <span>Android Home Screen Widget</span>
               </button>
 
@@ -309,7 +308,7 @@ export default function Navbar({
                 }}
                 className="w-full py-1.5 px-2.5 rounded-xl text-zinc-500 hover:text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors text-[11px] font-medium"
               >
-                <LogOut className="w-3.5 h-3.5" />
+                <AppIcon name="logout" className="w-4 h-4" />
                 <span>Switch Studio / Unpair</span>
               </button>
             </div>
@@ -327,7 +326,7 @@ export default function Navbar({
             activeTab === 'canvas' ? 'text-[#ff5722] font-bold' : 'text-zinc-500 hover:text-zinc-800'
           }`}
         >
-          <Paintbrush className="w-4 h-4 mb-0.5" />
+          <AppIcon name="paintbrush" className="w-5 h-5 mb-0.5" />
           <span className="text-[10px]">Canvas</span>
         </button>
 
@@ -340,7 +339,7 @@ export default function Navbar({
           }`}
         >
           <div className="relative">
-            <Music className="w-4 h-4 mb-0.5" />
+            <AppIcon name="music" className="w-5 h-5 mb-0.5" />
             {isPlaying && (
               <span className="absolute -top-1 -right-2 flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#ff5722] opacity-75"></span>
@@ -365,7 +364,7 @@ export default function Navbar({
           }`}
         >
           <div className="relative">
-            <StickyNote className="w-4 h-4 mb-0.5" />
+            <AppIcon name="stickynote" className="w-5 h-5 mb-0.5" />
             {notesCount > 0 && (
               <span className="absolute -top-1.5 -right-2 w-3.5 h-3.5 rounded-full bg-[#ff5722] text-white text-[8px] font-bold flex items-center justify-center">
                 {notesCount}
