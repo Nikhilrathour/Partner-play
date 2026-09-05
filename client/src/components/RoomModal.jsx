@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { socketCreateRoom, socketJoinRoom, getServerUrl, setCustomServerUrl } from '../services/socket';
+import { socket, socketCreateRoom, socketJoinRoom, getServerUrl, setCustomServerUrl } from '../services/socket';
 import { playPop } from '../services/sound';
 import { Heart, Sparkles, Copy, Check, ArrowRight, Settings, ChevronDown, ChevronUp } from 'lucide-react';
 import AppIcon from './AppIcon';
