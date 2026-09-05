@@ -156,6 +156,7 @@ export default function AudioPlayer({
   const ytPlayerRef = useRef(null);
   const isSelfTriggeredRef = useRef(false);
   const [remoteToast, setRemoteToast] = useState(null);
+  const [isMiniPlayerDismissed, setIsMiniPlayerDismissed] = useState(false);
   const toastTimerRef = useRef(null);
 
   const DRIFT_THRESHOLD_SECONDS = 0.25;
@@ -250,6 +251,10 @@ export default function AudioPlayer({
 
       const activeSource = track?.source || currentTrack.source;
 
+      if (action === 'play' || action === 'change_track') {
+        setIsMiniPlayerDismissed(false);
+      }
+
       if (action === 'play') {
         setIsPlaying(true);
         if (activeSource === 'youtube' && ytPlayerRef.current) {
@@ -332,6 +337,7 @@ export default function AudioPlayer({
   const togglePlay = () => {
     isSelfTriggeredRef.current = true;
     const nextIsPlaying = !isPlaying;
+    if (nextIsPlaying) setIsMiniPlayerDismissed(false);
     setIsPlaying(nextIsPlaying);
 
     let activeTime = currentTime;
@@ -381,10 +387,11 @@ export default function AudioPlayer({
     });
   };
 
-  const selectTrack = (track) => {
-    playPop();
+  const handleSelectTrack = (track) => {
+    isSelfTriggeredRef.current = true;
     setCurrentTrack(track);
     setIsPlaying(true);
+    setIsMiniPlayerDismissed(false);
     setCurrentTime(0);
 
     if (track.source === 'youtube') {
@@ -486,41 +493,49 @@ export default function AudioPlayer({
         </div>
       )}
 
-      {/* 1. MINI-PLAYER PILL (Crisp White Studio Pill) */}
-      {activeTab === 'canvas' && (
-        <div className="absolute top-2 left-2 right-2 sm:left-auto sm:right-4 z-20 pointer-events-auto max-w-sm sm:max-w-md animate-fadeIn">
-          <div className="flex items-center justify-between gap-2.5 px-3 py-1.5 rounded-2xl bg-white border border-[#ede8e1] shadow-md transition-all">
+      {/* 1. MINI-PLAYER PILL (Appears on canvas ONLY when music is actively playing) */}
+      {activeTab === 'canvas' && isPlaying && !isMiniPlayerDismissed && (
+        <div className="absolute top-2.5 right-2.5 sm:right-4 z-20 pointer-events-auto max-w-[270px] sm:max-w-xs animate-fadeIn">
+          <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-2xl bg-white/95 backdrop-blur-md border border-[#ede8e1] shadow-md transition-all">
             <div 
               onClick={() => onSwitchTab('music')}
               className="flex items-center gap-2 cursor-pointer min-w-0 flex-1"
               title="Open Music Lounge"
             >
-              <div className="w-7 h-7 rounded-lg bg-[#fff3ef] border border-[#ffcdbc] flex items-center justify-center flex-shrink-0 text-[#ff5722]">
-                <Disc3 className={`w-4 h-4 ${isPlaying ? 'animate-spin-slow' : ''}`} />
+              <div className="w-6 h-6 rounded-lg bg-[#fff3ef] border border-[#ffcdbc] flex items-center justify-center flex-shrink-0 text-[#ff5722]">
+                <Disc3 className="w-3.5 h-3.5 animate-spin-slow" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-bold text-zinc-900 truncate">
+                <p className="text-[11px] font-bold text-zinc-900 truncate">
                   {currentTrack.title}
                 </p>
-                <div className="flex items-center gap-1.5 text-[10px] text-zinc-500">
-                  <span className="truncate">{currentTrack.artist}</span>
-                  {isPlaying && (
-                    <span className="flex items-center gap-0.5 text-[#ff5722] flex-shrink-0">
-                      <span className="w-0.5 h-2 bg-[#ff5722] animate-pulse rounded-full" />
-                      <span className="w-0.5 h-2.5 bg-[#ff5722] animate-pulse delay-75 rounded-full" />
-                    </span>
-                  )}
+                <div className="flex items-center gap-1.5 text-[9px] text-zinc-500">
+                  <span className="truncate max-w-[90px]">{currentTrack.artist}</span>
+                  <span className="flex items-center gap-0.5 text-[#ff5722] flex-shrink-0">
+                    <span className="w-0.5 h-1.5 bg-[#ff5722] animate-pulse rounded-full" />
+                    <span className="w-0.5 h-2.5 bg-[#ff5722] animate-pulse delay-75 rounded-full" />
+                  </span>
                 </div>
               </div>
             </div>
 
-            <button
-              id="mini-play-btn"
-              onClick={togglePlay}
-              className="w-7 h-7 rounded-lg bg-[#ff5722] hover:bg-[#f4511e] text-white flex items-center justify-center shadow-sm flex-shrink-0 active:scale-95 transition-transform"
-            >
-              {isPlaying ? <Pause className="w-3 h-3 fill-current" /> : <Play className="w-3 h-3 fill-current ml-0.5" />}
-            </button>
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <button
+                id="mini-play-btn"
+                onClick={togglePlay}
+                title={isPlaying ? "Pause" : "Play"}
+                className="w-6 h-6 rounded-lg bg-[#ff5722] hover:bg-[#f4511e] text-white flex items-center justify-center shadow-xs active:scale-95 transition-transform"
+              >
+                {isPlaying ? <Pause className="w-3 h-3 fill-current" /> : <Play className="w-3 h-3 fill-current ml-0.5" />}
+              </button>
+              <button
+                onClick={() => setIsMiniPlayerDismissed(true)}
+                title="Hide overlay from canvas"
+                className="w-5 h-5 rounded-md text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 flex items-center justify-center text-xs transition-colors"
+              >
+                ✕
+              </button>
+            </div>
           </div>
         </div>
       )}

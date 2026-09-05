@@ -104,14 +104,37 @@ export default function Navbar({
 
   return (
     <>
-      {/* TOP BAR (Creator Studio Warm Theme) */}
-      <header className="h-14 sm:h-16 px-3 sm:px-6 flex items-center justify-between border-b border-[#ede8e1] bg-white/80 backdrop-blur-md relative z-30 flex-shrink-0 w-full max-w-full box-border">
-        {/* Left: Brand */}
-        <div className="flex items-center gap-2 sm:gap-2.5 flex-shrink-0">
-          <AppIcon name="app" className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl shadow-xs" alt="Nikhana Play" />
-          <h1 className="text-sm sm:text-base font-bold tracking-tight text-zinc-900">
-            Nikhana Play
-          </h1>
+      {/* TOP BAR (Creator Studio Warm Theme) with Notch & Safe Area Clearance */}
+      <header className="pt-[max(env(safe-area-inset-top,0px),30px)] sm:pt-0 pb-2 sm:pb-0 min-h-[calc(3.75rem+max(env(safe-area-inset-top,0px),30px))] sm:min-h-[4rem] px-3 sm:px-6 flex items-center justify-between border-b border-[#ede8e1] bg-white/95 backdrop-blur-md relative z-30 flex-shrink-0 w-full max-w-full box-border">
+        {/* Left: Brand & Studio Key Pill */}
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <div className="flex items-center gap-1.5 shrink-0">
+            <AppIcon name="app" className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl shadow-xs shrink-0" alt="Nikhana Play" />
+            <span className="text-sm sm:text-base font-bold tracking-tight text-zinc-900 hidden min-[340px]:inline">
+              Nikhana
+            </span>
+          </div>
+
+          {/* Room / Studio Key Pill */}
+          {room?.code ? (
+            <button
+              id="navbar-room-code-btn"
+              onClick={copyRoomCode}
+              title="Click to copy studio code"
+              className="flex items-center gap-1 bg-[#fbf9f6] hover:bg-[#f4efe8] active:scale-95 border border-[#e2ddd5] rounded-xl px-2 sm:px-2.5 py-1 text-xs font-mono font-bold text-zinc-800 transition-all shadow-xs shrink-0"
+            >
+              <span className="text-[9px] text-zinc-400 font-sans font-semibold uppercase">Room</span>
+              <span>{room.code}</span>
+              {copied ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3 text-zinc-400" />}
+            </button>
+          ) : (
+            <button
+              onClick={onOpenRoomModal}
+              className="studio-btn-primary px-2.5 py-1 rounded-xl text-xs font-semibold shrink-0"
+            >
+              + Join
+            </button>
+          )}
         </div>
 
         {/* Center: Segmented Navigation Pills on screens >= 640px */}
@@ -170,107 +193,124 @@ export default function Navbar({
           </button>
         </div>
 
-        {/* Right: Room Code, Presence & Profile */}
-        <div className="flex items-center gap-2 sm:gap-2.5 flex-shrink-0 relative" ref={menuRef}>
-          {/* Room Code Pill */}
-          {room?.code ? (
-            <div className="flex items-center gap-1 bg-white border border-[#e2ddd5] rounded-xl px-2.5 sm:px-3 py-1 shadow-xs">
-              <button
-                onClick={copyRoomCode}
-                title="Click to copy studio code"
-                className="flex items-center gap-1.5 text-xs font-mono font-bold text-zinc-800 hover:text-[#ff5722] transition-colors"
-              >
-                <span>{room.code}</span>
-                {copied ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3 text-zinc-400" />}
-              </button>
-
-              <button
-                onClick={copyInviteLink}
-                title="Share direct invite link"
-                className="p-0.5 text-zinc-400 hover:text-zinc-700 transition-colors ml-0.5"
-              >
-                <Share2 className="w-3 h-3" />
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={onOpenRoomModal}
-              className="studio-btn-primary px-3 py-1.5 rounded-xl text-xs font-semibold"
-            >
-              + Join Studio
-            </button>
-          )}
-
-          {/* Connection & Partner Presence Badge */}
-          {!isSocketConnected ? (
+        {/* Right: Unified Profile & Connectivity Icon (Placed at side) */}
+        <div className="relative shrink-0" ref={menuRef}>
+          <button
+            id="navbar-profile-connectivity-btn"
+            onClick={() => {
+              playPop();
+              setIsMenuOpen(!isMenuOpen);
+            }}
+            title={
+              !isSocketConnected
+                ? 'Connecting to studio...'
+                : partnerConnected
+                ? `${user?.name || 'You'} & Partner Connected 💚 (Click for options)`
+                : `${user?.name || 'You'} • Partner Offline (Click to invite)`
+            }
+            className="relative flex items-center justify-center p-0.5 rounded-full hover:scale-105 active:scale-95 transition-transform focus:outline-none"
+          >
+            {/* User Avatar Circle */}
             <div 
-              className="px-2 sm:px-2.5 py-1 rounded-full text-[10px] sm:text-[11px] font-medium flex items-center gap-1.5 bg-[#fef2f2] text-[#b91c1c] border border-[#fecaca]"
-              title="Connecting to studio server..."
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold text-white shadow-sm border-2 border-white transition-all bg-gradient-to-tr from-[#ff5722] to-[#ff7a45]"
+              style={{
+                boxShadow: partnerConnected ? '0 0 10px rgba(16, 185, 129, 0.4)' : '0 2px 6px rgba(0,0,0,0.1)'
+              }}
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
-              <span>Connecting...</span>
+              {user?.name ? user.name[0].toUpperCase() : 'U'}
             </div>
-          ) : partnerConnected ? (
-            <div 
-              className="badge-mint px-2 sm:px-2.5 py-1 rounded-full text-[10px] sm:text-[11px] font-medium flex items-center gap-1.5 shadow-xs"
-              title="Your partner is connected in the studio!"
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-              <span>Connected</span>
-            </div>
-          ) : (
-            <button
-              onClick={copyInviteLink}
-              className="px-2 sm:px-2.5 py-1 rounded-full text-[10px] sm:text-[11px] font-medium flex items-center gap-1.5 bg-[#fffbeb] hover:bg-[#fef3c7] text-[#b45309] border border-[#fde68a] transition-all cursor-pointer shadow-xs active:scale-95"
-              title="Click to copy invite link for your partner"
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-              <span>{copied ? 'Link Copied! 💌' : 'Invite Partner 💌'}</span>
-            </button>
-          )}
 
-          {/* User Profile Avatar with Dropdown Toggle */}
-          {user && (
-            <div 
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-sm cursor-pointer hover:scale-105 active:scale-95 transition-transform bg-gradient-to-tr from-[#ff5722] to-[#ff7a45]"
-              title={`Studio Settings: ${user.name}`}
-            >
-              {user.name ? user.name[0].toUpperCase() : 'U'}
-            </div>
-          )}
+            {/* Live Connectivity Status Indicator Badge */}
+            <span className="absolute -bottom-0.5 -right-0.5 flex items-center justify-center">
+              {!isSocketConnected ? (
+                // Reconnecting / Offline (Red Ping)
+                <span className="relative flex h-3.5 w-3.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-red-500 border-2 border-white shadow-xs"></span>
+                </span>
+              ) : partnerConnected ? (
+                // Partner Connected (Emerald Green Glow)
+                <span className="relative flex h-3.5 w-3.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500 border-2 border-white shadow-xs"></span>
+                </span>
+              ) : (
+                // Waiting for Partner / Ready (Amber Dot)
+                <span className="relative flex h-3.5 w-3.5">
+                  <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-amber-400 border-2 border-white shadow-xs"></span>
+                </span>
+              )}
+            </span>
+          </button>
 
-          {/* Studio Profile & Settings Popover Dropdown */}
+          {/* Profile & Connectivity Options Popover */}
           {isMenuOpen && (
-            <div className="absolute right-0 top-12 w-64 rounded-2xl bg-white border border-[#ede8e1] shadow-2xl p-3 z-50 animate-fadeIn space-y-2.5 text-xs text-[#18181b]">
+            <div className="absolute right-0 top-full mt-2 w-72 max-w-[calc(100vw-1.5rem)] rounded-2xl bg-white border border-[#ede8e1] shadow-2xl p-3.5 z-50 animate-fadeIn space-y-3 text-xs text-[#18181b]">
               {/* Profile Header */}
-              <div className="flex items-center gap-2.5 pb-2 border-b border-[#ede8e1]">
+              <div className="flex items-center gap-2.5 pb-2.5 border-b border-[#ede8e1]">
                 <div 
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-sm"
-                  style={{ backgroundColor: user?.color || '#ff5722' }}
+                  className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white shadow-sm bg-gradient-to-tr from-[#ff5722] to-[#ff7a45]"
                 >
                   {user?.name ? user.name[0].toUpperCase() : 'U'}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="font-bold text-sm text-zinc-900 truncate">{user?.name}</p>
-                  <p className="text-[10px] text-zinc-500">Permanent Couple Studio</p>
+                  <p className="font-bold text-sm text-zinc-900 truncate">{user?.name || 'Partner'}</p>
+                  <p className="text-[10px] text-zinc-500">Nikhana Couple Studio</p>
                 </div>
               </div>
 
-              {/* Room Code & Invite info */}
-              <div className="p-2.5 rounded-xl bg-[#fbf9f6] border border-[#ede8e1] space-y-1">
-                <div className="flex items-center justify-between text-[11px] text-zinc-500">
-                  <span>Studio Key:</span>
-                  <span className="font-mono font-bold text-[#ff5722]">{room?.code}</span>
+              {/* Live Connectivity Status Card */}
+              {!isSocketConnected ? (
+                <div className="p-2.5 rounded-xl bg-red-50 border border-red-200 flex items-center gap-2 text-red-700">
+                  <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-xs">Reconnecting...</p>
+                    <p className="text-[10px] text-red-600">Connecting to live cloud server</p>
+                  </div>
                 </div>
-                <button
-                  onClick={copyInviteLink}
-                  className="w-full mt-1.5 py-1 px-2 rounded-lg bg-white border border-[#ede8e1] text-[11px] font-semibold text-zinc-700 hover:text-[#ff5722] flex items-center justify-center gap-1.5 shadow-xs"
-                >
-                  <Share2 className="w-3 h-3" />
-                  <span>Copy Partner Invite Link</span>
-                </button>
-              </div>
+              ) : partnerConnected ? (
+                <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center gap-2 text-emerald-800">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-xs">Partner Connected 💚</p>
+                    <p className="text-[10px] text-emerald-600">Both devices are in sync in real time</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 space-y-2 text-amber-900">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold text-xs">Waiting for Partner 💌</p>
+                      <p className="text-[10px] text-amber-700">Enter studio code on their device</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={copyInviteLink}
+                    className="w-full py-1.5 px-2 rounded-lg bg-white border border-amber-200 text-xs font-bold text-amber-800 hover:bg-amber-100/60 transition-all flex items-center justify-center gap-1.5 shadow-xs active:scale-95"
+                  >
+                    <Share2 className="w-3.5 h-3.5 text-amber-600" />
+                    <span>{copied ? 'Copied Invite Link! 💌' : 'Copy Partner Invite Link'}</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Studio Key Card */}
+              {room?.code && (
+                <div className="p-2.5 rounded-xl bg-[#fbf9f6] border border-[#ede8e1] flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold">Studio Key</p>
+                    <p className="font-mono font-bold text-sm text-[#ff5722]">{room.code}</p>
+                  </div>
+                  <button
+                    onClick={copyRoomCode}
+                    className="py-1 px-2.5 rounded-lg bg-white border border-[#ede8e1] text-xs font-semibold text-zinc-700 hover:text-[#ff5722] flex items-center gap-1 shadow-xs transition-colors"
+                  >
+                    {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-zinc-400" />}
+                    <span>{copied ? 'Copied' : 'Copy'}</span>
+                  </button>
+                </div>
+              )}
 
               {/* Android Home Screen Widget Button */}
               <button
@@ -295,8 +335,6 @@ export default function Navbar({
                 <Download className="w-4 h-4" />
                 <span>Install Web App (PWA)</span>
               </button>
-
-
 
               {/* Disconnect / Switch Studio Button */}
               <button

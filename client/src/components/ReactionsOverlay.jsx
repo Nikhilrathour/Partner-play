@@ -119,10 +119,10 @@ export default function ReactionsOverlay({ user }) {
         ))}
       </div>
 
-      {/* Mobile-First Reaction FAB with safe area */}
+      {/* Mobile-First Reaction FAB with safe area (floats above the canvas drawing toolbar) */}
       <div 
         ref={menuRef} 
-        className="fixed right-3 bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] sm:bottom-6 z-30 flex items-center"
+        className="fixed right-3 bottom-[calc(8.5rem+env(safe-area-inset-bottom,0px))] sm:bottom-6 z-30 flex items-center"
       >
         {/* Expanded horizontal emoji tray */}
         {isMenuOpen && (
