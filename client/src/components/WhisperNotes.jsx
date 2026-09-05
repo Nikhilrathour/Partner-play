@@ -138,8 +138,7 @@ export default function WhisperNotes({ room, user, isOpen, onClose, asTab = fals
               className="w-full bg-[#fbf9f6] text-sm p-3.5 rounded-xl border border-[#ede8e1] focus:outline-none focus:border-[#ff5722] text-[#18181b] placeholder:text-[#a1a1aa] resize-none transition-colors"
             />
             <div className="flex items-center justify-between flex-wrap gap-3">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-[#71717a]">Color:</span>
+              <div className="flex items-center gap-1.5">
                 <div className="flex items-center gap-1.5">
                   {NOTE_COLORS.map((c) => (
                     <button

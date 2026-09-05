@@ -536,14 +536,16 @@ export default function AudioPlayer({
             </div>
             <div className="min-w-0">
               <h2 className="text-sm sm:text-base font-bold text-zinc-900 truncate">Music Lounge</h2>
-              <p className="text-[11px] text-zinc-500 truncate">Synchronized Audio Engine</p>
+              <p className="text-[11px] text-zinc-500 truncate">Listen together in real time</p>
             </div>
           </div>
 
-          <div className="badge-mint rounded-full px-2.5 py-0.5 text-[11px] font-semibold flex items-center gap-1.5 shadow-xs flex-shrink-0">
-            <span className={`w-1.5 h-1.5 rounded-full ${isPlaying ? 'bg-emerald-500 animate-ping' : 'bg-emerald-400'}`} />
-            <span>{syncStatus}</span>
-          </div>
+          {isPlaying && (
+            <div className="badge-mint rounded-full px-2.5 py-0.5 text-[11px] font-semibold flex items-center gap-1.5 shadow-xs flex-shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+              <span>Playing</span>
+            </div>
+          )}
         </div>
 
         {/* Master Player Card (Crisp White Card with Studio Styling) */}

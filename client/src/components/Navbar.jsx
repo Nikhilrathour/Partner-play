@@ -91,22 +91,12 @@ export default function Navbar({
     <>
       {/* TOP BAR (Creator Studio Warm Theme) */}
       <header className="h-14 sm:h-16 px-3 sm:px-6 flex items-center justify-between border-b border-[#ede8e1] bg-white/80 backdrop-blur-md relative z-30 flex-shrink-0 w-full max-w-full box-border">
-        {/* Left: Brand & Live Sync Badge */}
+        {/* Left: Brand */}
         <div className="flex items-center gap-2 sm:gap-2.5 flex-shrink-0">
           <AppIcon name="app" className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl shadow-xs" alt="Partner Play" />
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <span className="text-xs text-zinc-400 hidden sm:inline">Duo Studio</span>
-            <span className="text-xs text-zinc-300 hidden sm:inline">&rsaquo;</span>
-            <h1 className="text-sm sm:text-base font-bold tracking-tight text-zinc-900">
-              Partner Play
-            </h1>
-            
-            {/* Live Sync Pill */}
-            <div className="badge-mint rounded-full px-2 sm:px-2.5 py-0.5 text-[10px] sm:text-[11px] font-semibold flex items-center gap-1.5 shadow-xs">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span>Live Sync</span>
-            </div>
-          </div>
+          <h1 className="text-sm sm:text-base font-bold tracking-tight text-zinc-900">
+            Partner Play
+          </h1>
         </div>
 
         {/* Center: Segmented Navigation Pills on screens >= 640px */}
@@ -165,35 +155,15 @@ export default function Navbar({
           </button>
         </div>
 
-        {/* Right: Room Code, Install Button, Presence & Profile */}
-        <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0 relative" ref={menuRef}>
-          {/* Android Widget Quick Button */}
-          <button
-            onClick={() => setIsWidgetModalOpen(true)}
-            title="Android Home Screen Widget"
-            className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-xl bg-gradient-to-r from-[#fff3ef] to-[#ffece6] hover:bg-[#ffe8e0] text-[#ff5722] border border-[#ffcdbc] shadow-xs text-xs font-semibold transition-all"
-          >
-            <AppIcon name="smartphone" className="w-4 h-4" />
-            <span className="hidden sm:inline">Widget</span>
-          </button>
-
-          {/* Install App Quick Button */}
-          <button
-            onClick={onInstallApp}
-            title="Download/Install App on Phone"
-            className="flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-xl bg-white hover:bg-[#f4efe8] text-zinc-700 hover:text-[#ff5722] border border-[#ede8e1] shadow-xs text-xs font-semibold transition-all"
-          >
-            <Download className="w-3.5 h-3.5 text-[#ff5722]" />
-            <span className="hidden min-[480px]:inline">Install</span>
-          </button>
-
+        {/* Right: Room Code, Presence & Profile */}
+        <div className="flex items-center gap-2 sm:gap-2.5 flex-shrink-0 relative" ref={menuRef}>
           {/* Room Code Pill */}
           {room?.code ? (
-            <div className="flex items-center gap-1 bg-white border border-[#e2ddd5] rounded-xl px-2 sm:px-2.5 py-1 shadow-xs">
+            <div className="flex items-center gap-1 bg-white border border-[#e2ddd5] rounded-xl px-2.5 sm:px-3 py-1 shadow-xs">
               <button
                 onClick={copyRoomCode}
                 title="Click to copy studio code"
-                className="flex items-center gap-1 text-xs font-mono font-bold text-zinc-800 hover:text-[#ff5722] transition-colors"
+                className="flex items-center gap-1.5 text-xs font-mono font-bold text-zinc-800 hover:text-[#ff5722] transition-colors"
               >
                 <span>{room.code}</span>
                 {copied ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3 text-zinc-400" />}
@@ -298,10 +268,7 @@ export default function Navbar({
                 <span>Install Web App (PWA)</span>
               </button>
 
-              {/* Remote Play Note */}
-              <div className="p-2 rounded-xl bg-emerald-50 border border-emerald-100 text-[10px] text-emerald-800 leading-tight">
-                ✨ <strong>Remote Jukebox:</strong> As long as both phones have the studio open, whatever you play streams live to both phones!
-              </div>
+
 
               {/* Disconnect / Switch Studio Button */}
               <button

@@ -58,7 +58,7 @@ public class PartnerWidgetProvider extends AppWidgetProvider {
 
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_partner_play);
         views.setTextViewText(R.id.widget_room_code, "❤️ Studio " + roomCode);
-        views.setTextViewText(R.id.widget_status_text, "Live Sync");
+        views.setViewVisibility(R.id.widget_empty_hint, android.view.View.VISIBLE);
 
         // Intent to launch full studio app on widget tap
         Intent intent = new Intent(context, MainActivity.class);
@@ -112,9 +112,9 @@ public class PartnerWidgetProvider extends AppWidgetProvider {
 
                     if (finalBitmap != null) {
                         updateViews.setImageViewBitmap(R.id.widget_canvas_image, finalBitmap);
-                        updateViews.setTextViewText(R.id.widget_status_text, "Synced");
+                        updateViews.setViewVisibility(R.id.widget_empty_hint, android.view.View.GONE);
                     } else {
-                        updateViews.setTextViewText(R.id.widget_status_text, "Tap to draw");
+                        updateViews.setViewVisibility(R.id.widget_empty_hint, android.view.View.VISIBLE);
                     }
                     appWidgetManager.updateAppWidget(appWidgetId, updateViews);
                 } catch (Exception err) {

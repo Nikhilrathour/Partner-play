@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { socket, socketCreateRoom, socketJoinRoom, getServerUrl, setCustomServerUrl } from '../services/socket';
+import { socketCreateRoom, socketJoinRoom, getServerUrl } from '../services/socket';
 import { playPop } from '../services/sound';
-import { Heart, Sparkles, Copy, Check, ArrowRight, Settings, ChevronDown, ChevronUp } from 'lucide-react';
+import { Heart, Sparkles, Copy, Check, ArrowRight } from 'lucide-react';
 import AppIcon from './AppIcon';
 
 const AVATAR_COLORS = ['#ff5722', '#7c3aed', '#0284c7', '#f43f5e', '#059669', '#f59e0b'];
@@ -15,24 +15,6 @@ export default function RoomModal({ isOpen, onClose, onJoined, currentRoomCode }
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [copiedLink, setCopiedLink] = useState(false);
-  const [showServerConfig, setShowServerConfig] = useState(false);
-  const [serverInput, setServerInput] = useState(getServerUrl());
-
-  const [isServerOnline, setIsServerOnline] = useState(socket.connected);
-
-  // Monitor socket connection state
-  useEffect(() => {
-    const onConnect = () => setIsServerOnline(true);
-    const onDisconnect = () => setIsServerOnline(false);
-
-    socket.on('connect', onConnect);
-    socket.on('disconnect', onDisconnect);
-
-    return () => {
-      socket.off('connect', onConnect);
-      socket.off('disconnect', onDisconnect);
-    };
-  }, []);
 
   // Check URL query parameters for auto room code fill
   useEffect(() => {
@@ -146,10 +128,10 @@ export default function RoomModal({ isOpen, onClose, onJoined, currentRoomCode }
             <Heart className="w-7 h-7 fill-[#ff5722] animate-pulse" />
           </div>
           <h2 className="text-2xl font-bold tracking-tight text-[#18181b]">
-            Duo Studio • Partner Play
+            Partner Play
           </h2>
           <p className="text-sm text-[#71717a] mt-1">
-            Real-time collaborative canvas & synchronized beats
+            A shared creative space for you &amp; your partner
           </p>
         </div>
 
@@ -181,20 +163,21 @@ export default function RoomModal({ isOpen, onClose, onJoined, currentRoomCode }
           </button>
         </div>
 
-        {/* Form Inputs */}
+        {/* Form Body */}
         <form onSubmit={activeTab === 'create' ? handleCreate : handleJoin} className="space-y-4">
-          {/* User Nickname */}
+          {/* Partner Name Input */}
           <div>
             <label className="block text-xs font-bold text-[#18181b] mb-1.5">
-              Your Nickname
+              Your Name / Nickname
             </label>
             <input
+              id="input-user-name"
               type="text"
               value={userName}
               onChange={(e) => setUserName(e.target.value)}
-              placeholder="e.g. My Love, Alex, Jordan"
-              className="w-full px-4 py-2.5 rounded-xl bg-[#fbf9f6] border border-[#ede8e1] text-sm text-[#18181b] placeholder:text-[#a1a1aa] focus:outline-none focus:border-[#ff5722] focus:ring-1 focus:ring-[#ff5722] transition-colors"
+              placeholder="e.g. Baby, Honey, Nick..."
               maxLength={20}
+              className="w-full px-4 py-2.5 rounded-xl bg-[#fbf9f6] border border-[#ede8e1] text-xs text-[#18181b] placeholder:text-[#a1a1aa] focus:outline-none focus:border-[#ff5722] transition-colors"
               required
             />
           </div>
@@ -225,7 +208,7 @@ export default function RoomModal({ isOpen, onClose, onJoined, currentRoomCode }
           {activeTab === 'join' && (
             <div>
               <label className="block text-xs font-bold text-[#18181b] mb-1.5">
-                Room Code
+                Studio Code
               </label>
               <input
                 type="text"
@@ -263,28 +246,12 @@ export default function RoomModal({ isOpen, onClose, onJoined, currentRoomCode }
             </p>
           )}
 
-          {/* Live Server Connectivity Status Indicator */}
-          <div className="flex items-center justify-between px-1 py-0.5 text-[11px]">
-            <span className="text-zinc-500 font-medium">Studio Server:</span>
-            {isServerOnline ? (
-              <span className="text-emerald-600 font-semibold flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span>Online & Ready</span>
-              </span>
-            ) : (
-              <span className="text-amber-600 font-semibold flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
-                <span>Connecting to Server...</span>
-              </span>
-            )}
-          </div>
-
           {/* Submit Button */}
           <button
             id="modal-submit-btn"
             type="submit"
             disabled={isLoading}
-            className="w-full py-3 px-4 rounded-xl bg-[#ff5722] hover:bg-[#f4511e] text-white font-bold text-sm shadow-sm flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99] transition-all disabled:opacity-50"
+            className="w-full py-3 px-4 rounded-xl bg-[#ff5722] hover:bg-[#f4511e] text-white font-bold text-sm shadow-sm flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99] transition-all disabled:opacity-50 mt-2"
           >
             {isLoading ? (
               <span>Connecting Studio...</span>
@@ -317,61 +284,6 @@ export default function RoomModal({ isOpen, onClose, onJoined, currentRoomCode }
             </button>
           </div>
         )}
-
-        {/* Server Connection Status & Config (Inline expandable, zero browser prompts) */}
-        <div className="mt-4 pt-3 border-t border-[#ede8e1]">
-          <div className="flex items-center justify-between text-[11px] text-zinc-500">
-            <span className="flex items-center gap-1.5 truncate max-w-[240px]">
-              <AppIcon name="settings" className="w-4 h-4 shrink-0" />
-              <span className="truncate">Server: <span className="font-mono text-zinc-700">{getServerUrl().replace(/^https?:\/\//, '')}</span></span>
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                setShowServerConfig(!showServerConfig);
-                playPop();
-              }}
-              className="text-[#ff5722] hover:underline font-medium ml-2 shrink-0 flex items-center gap-0.5"
-            >
-              <span>{showServerConfig ? 'Close' : 'Change'}</span>
-              {showServerConfig ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-            </button>
-          </div>
-
-          {showServerConfig && (
-            <div className="mt-2.5 p-3 rounded-2xl bg-[#fbf9f6] border border-[#ede8e1] space-y-2 animate-fadeIn">
-              <label className="block text-[11px] font-bold text-zinc-700">
-                Custom Server URL
-              </label>
-              <input
-                type="text"
-                value={serverInput}
-                onChange={(e) => setServerInput(e.target.value)}
-                placeholder="https://partner-play-production.up.railway.app"
-                className="w-full px-3 py-1.5 text-xs font-mono rounded-xl bg-white border border-[#ede8e1] focus:outline-none focus:border-[#ff5722]"
-              />
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setCustomServerUrl(serverInput)}
-                  className="flex-1 py-1.5 rounded-lg bg-[#ff5722] hover:bg-[#f4511e] text-white text-[11px] font-bold transition-colors"
-                >
-                  Save & Reconnect
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCustomServerUrl('');
-                    setServerInput('https://partner-play-production.up.railway.app');
-                  }}
-                  className="px-2.5 py-1.5 rounded-lg bg-white border border-[#ede8e1] text-zinc-600 hover:text-zinc-900 text-[11px] font-medium transition-colors"
-                >
-                  Reset Default
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );
