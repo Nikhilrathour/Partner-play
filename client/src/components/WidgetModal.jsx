@@ -12,6 +12,7 @@ import {
   Download,
   Flame
 } from 'lucide-react';
+import { getServerUrl } from '../services/socket';
 
 export default function WidgetModal({ isOpen, onClose, room, user }) {
   const [copied, setCopied] = useState(false);
@@ -29,7 +30,7 @@ export default function WidgetModal({ isOpen, onClose, room, user }) {
 
     const fetchMeta = async () => {
       try {
-        const res = await fetch(`/api/room/${room.code}/widget.json`);
+        const res = await fetch(`${getServerUrl()}/api/room/${room.code}/widget.json`);
         if (res.ok) {
           const data = await res.json();
           setWidgetMeta(data);
@@ -56,7 +57,10 @@ export default function WidgetModal({ isOpen, onClose, room, user }) {
     setIsPinning(true);
     try {
       if (isCapacitor && window.Capacitor?.Plugins?.WidgetBridge) {
-        await window.Capacitor.Plugins.WidgetBridge.requestPinWidget({ roomCode });
+        await window.Capacitor.Plugins.WidgetBridge.requestPinWidget({ 
+          roomCode, 
+          serverUrl: getServerUrl() 
+        });
         setPinSuccess(true);
       } else {
         // If not in native app, open explanation or trigger pin alert
@@ -122,7 +126,7 @@ export default function WidgetModal({ isOpen, onClose, room, user }) {
               <div className="absolute inset-0 flex items-center justify-center">
                 <img 
                   key={refreshKey}
-                  src={`/api/room/${roomCode}/widget.png?t=${refreshKey}`}
+                  src={`${getServerUrl()}/api/room/${roomCode}/widget.png?t=${refreshKey}`}
                   alt="Live Canvas Widget"
                   className="w-full h-full object-contain"
                   onError={(e) => {
@@ -206,12 +210,12 @@ export default function WidgetModal({ isOpen, onClose, room, user }) {
           <div className="pt-2 border-t border-[#ede8e1] flex items-center justify-between text-[11px] text-zinc-500">
             <span>Direct Widget Feed URL:</span>
             <a 
-              href={`/api/room/${roomCode}/widget.png`}
+              href={`${getServerUrl()}/api/room/${roomCode}/widget.png`}
               target="_blank" 
               rel="noreferrer"
               className="text-[#ff5722] hover:underline font-mono flex items-center gap-1"
             >
-              <span>/api/room/{roomCode}/widget.png</span>
+              <span>{getServerUrl()}/api/room/{roomCode}/widget.png</span>
               <ExternalLink className="w-3 h-3" />
             </a>
           </div>

@@ -54,7 +54,7 @@ public class PartnerWidgetProvider extends AppWidgetProvider {
     public static void updateAppWidget(Context context, AppWidgetManager appWidgetManager, int appWidgetId) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         String roomCode = prefs.getString(KEY_ROOM_CODE, "LOVE99");
-        String serverUrl = prefs.getString(KEY_SERVER_URL, "http://10.0.2.2:5000");
+        String serverUrl = prefs.getString(KEY_SERVER_URL, "https://partner-play-production.up.railway.app");
 
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_partner_play);
         views.setTextViewText(R.id.widget_room_code, "❤️ Studio " + roomCode);

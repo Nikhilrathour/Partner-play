@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { socketCreateRoom, socketJoinRoom } from '../services/socket';
+import { socketCreateRoom, socketJoinRoom, getServerUrl, setCustomServerUrl } from '../services/socket';
 import { Heart, Sparkles, Copy, Check, ArrowRight } from 'lucide-react';
 
 const AVATAR_COLORS = ['#ff5722', '#7c3aed', '#0284c7', '#f43f5e', '#059669', '#f59e0b'];
@@ -44,6 +44,13 @@ export default function RoomModal({ isOpen, onClose, onJoined, currentRoomCode }
       url.searchParams.set('room', res.room.code);
       window.history.replaceState({}, '', url);
 
+      if (typeof window !== 'undefined' && window.Capacitor?.Plugins?.WidgetBridge) {
+        window.Capacitor.Plugins.WidgetBridge.saveWidgetRoomCode({
+          roomCode: res.room.code,
+          serverUrl: getServerUrl()
+        }).catch(() => {});
+      }
+
       onJoined(res.room);
       onClose();
     } else {
@@ -73,6 +80,13 @@ export default function RoomModal({ isOpen, onClose, onJoined, currentRoomCode }
       const url = new URL(window.location.href);
       url.searchParams.set('room', res.room.code);
       window.history.replaceState({}, '', url);
+
+      if (typeof window !== 'undefined' && window.Capacitor?.Plugins?.WidgetBridge) {
+        window.Capacitor.Plugins.WidgetBridge.saveWidgetRoomCode({
+          roomCode: res.room.code,
+          serverUrl: getServerUrl()
+        }).catch(() => {});
+      }
 
       onJoined(res.room);
       onClose();
@@ -257,6 +271,27 @@ export default function RoomModal({ isOpen, onClose, onJoined, currentRoomCode }
             </button>
           </div>
         )}
+
+        {/* Server Connection Status & Config */}
+        <div className="mt-4 pt-3 border-t border-[#ede8e1] flex items-center justify-between text-[11px] text-zinc-500">
+          <span className="flex items-center gap-1.5 truncate max-w-[240px]">
+            <span className="w-2 h-2 shrink-0 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span className="truncate">Server: <span className="font-mono text-zinc-700">{getServerUrl().replace(/^https?:\/\//, '')}</span></span>
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              const current = getServerUrl();
+              const newUrl = prompt('Enter Server URL:', current);
+              if (newUrl !== null) {
+                setCustomServerUrl(newUrl);
+              }
+            }}
+            className="text-[#ff5722] hover:underline font-medium ml-2 shrink-0"
+          >
+            Change
+          </button>
+        </div>
       </div>
     </div>
   );

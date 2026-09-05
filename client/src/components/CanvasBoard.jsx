@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { socket } from '../services/socket';
+import { socket, getServerUrl } from '../services/socket';
 import { 
   Paintbrush, 
   Sparkles, 
@@ -180,7 +180,7 @@ export default function CanvasBoard({ room, user, isActive = true }) {
       if (!canvas) return;
       try {
         const imageBase64 = canvas.toDataURL('image/png', 0.85);
-        fetch(`/api/room/${room.code}/snapshot`, {
+        fetch(`${getServerUrl()}/api/room/${room.code}/snapshot`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

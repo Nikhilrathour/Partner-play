@@ -1,14 +1,53 @@
 import { io } from 'socket.io-client';
 
-// In development, Vite proxies or we connect directly to port 5000
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 
-  (window.location.port === '5173' ? 'http://localhost:5000' : window.location.origin);
+export const DEFAULT_SERVER_URL = 'https://partner-play-production.up.railway.app';
 
-export const socket = io(SOCKET_URL, {
+export function getCustomServerUrl() {
+  if (typeof window === 'undefined') return '';
+  return localStorage.getItem('partner_play_server_url') || '';
+}
+
+export function setCustomServerUrl(url) {
+  if (typeof window === 'undefined') return;
+  if (!url || !url.trim()) {
+    localStorage.removeItem('partner_play_server_url');
+  } else {
+    let clean = url.trim();
+    if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
+      clean = 'https://' + clean;
+    }
+    if (clean.endsWith('/')) {
+      clean = clean.slice(0, -1);
+    }
+    localStorage.setItem('partner_play_server_url', clean);
+  }
+  window.location.reload();
+}
+
+export function getServerUrl() {
+  if (typeof window !== 'undefined') {
+    const custom = localStorage.getItem('partner_play_server_url');
+    if (custom && custom.trim()) return custom.trim();
+  }
+  if (import.meta.env.VITE_SOCKET_URL) {
+    return import.meta.env.VITE_SOCKET_URL;
+  }
+  if (typeof window !== 'undefined') {
+    if (window.location.port === '5173') {
+      return 'http://localhost:5000';
+    }
+    if (window.location.origin && !window.location.origin.includes('localhost')) {
+      return window.location.origin;
+    }
+  }
+  return DEFAULT_SERVER_URL;
+}
+
+export const socket = io(getServerUrl(), {
   autoConnect: true,
   transports: ['websocket', 'polling'],
-  reconnectionAttempts: 10,
-  reconnectionDelay: 1000,
+  reconnectionAttempts: 20,
+  reconnectionDelay: 1500,
 });
 
 // Helper promise wrapper for room creation
