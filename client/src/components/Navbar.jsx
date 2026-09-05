@@ -15,6 +15,7 @@ import {
   Radio
 } from 'lucide-react';
 import { socket } from '../services/socket';
+import { playChime, playPop } from '../services/sound';
 import WidgetModal from './WidgetModal';
 import AppIcon from './AppIcon';
 
@@ -34,6 +35,7 @@ export default function Navbar({
   const [partnerConnected, setPartnerConnected] = useState(room?.members?.length > 1);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isWidgetModalOpen, setIsWidgetModalOpen] = useState(false);
+  const [showUnpairModal, setShowUnpairModal] = useState(false);
   const menuRef = useRef(null);
 
   // Sync partner presence
@@ -42,7 +44,10 @@ export default function Navbar({
       setPartnerConnected(room.members.length > 1);
     }
 
-    const onPartnerJoined = () => setPartnerConnected(true);
+    const onPartnerJoined = () => {
+      setPartnerConnected(true);
+      playChime();
+    };
     const onPartnerLeft = () => setPartnerConnected(false);
 
     socket.on('room:partner_joined', onPartnerJoined);
@@ -302,9 +307,7 @@ export default function Navbar({
               <button
                 onClick={() => {
                   setIsMenuOpen(false);
-                  if (window.confirm('Disconnect from this private studio and pair with a new one?')) {
-                    onUnpair();
-                  }
+                  setShowUnpairModal(true);
                 }}
                 className="w-full py-1.5 px-2.5 rounded-xl text-zinc-500 hover:text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors text-[11px] font-medium"
               >
@@ -316,12 +319,15 @@ export default function Navbar({
         </div>
       </header>
 
-      {/* MOBILE BOTTOM NAVIGATION BAR (Thumb-friendly Studio Bar on <640px) */}
-      <nav className="sm:hidden fixed bottom-0 left-0 right-0 h-14 bg-white/95 backdrop-blur-md border-t border-[#ede8e1] z-40 flex items-center justify-around px-2 shadow-lg">
+      {/* MOBILE BOTTOM NAVIGATION BAR (Thumb-friendly Studio Bar on <640px with Safe Area) */}
+      <nav className="sm:hidden fixed bottom-0 left-0 right-0 h-[calc(3.5rem+env(safe-area-inset-bottom,0px))] pb-[env(safe-area-inset-bottom,0px)] bg-white/95 backdrop-blur-md border-t border-[#ede8e1] z-40 flex items-center justify-around px-2 shadow-lg">
         {/* Canvas Button */}
         <button
           id="mobile-nav-canvas"
-          onClick={() => onSelectTab('canvas')}
+          onClick={() => {
+            onSelectTab('canvas');
+            playPop();
+          }}
           className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
             activeTab === 'canvas' ? 'text-[#ff5722] font-bold' : 'text-zinc-500 hover:text-zinc-800'
           }`}
@@ -333,7 +339,10 @@ export default function Navbar({
         {/* Music Lounge Button */}
         <button
           id="mobile-nav-music"
-          onClick={() => onSelectTab('music')}
+          onClick={() => {
+            onSelectTab('music');
+            playPop();
+          }}
           className={`relative flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
             activeTab === 'music' ? 'text-[#ff5722] font-bold' : 'text-zinc-500 hover:text-zinc-800'
           }`}
@@ -358,7 +367,10 @@ export default function Navbar({
         {/* Notes Button */}
         <button
           id="mobile-nav-notes"
-          onClick={() => onSelectTab('notes')}
+          onClick={() => {
+            onSelectTab('notes');
+            playPop();
+          }}
           className={`relative flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
             activeTab === 'notes' ? 'text-[#ff5722] font-bold' : 'text-zinc-500 hover:text-zinc-800'
           }`}
@@ -374,6 +386,40 @@ export default function Navbar({
           <span className="text-[10px]">Notes</span>
         </button>
       </nav>
+
+      {/* In-App Unpair Confirmation Modal */}
+      {showUnpairModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-fadeIn">
+          <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl border border-[#ede8e1] space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-200 shrink-0">
+                <AppIcon name="logout" className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-zinc-900">Switch Private Studio?</h3>
+                <p className="text-xs text-zinc-500">You will disconnect from studio {room?.code} and can join another.</p>
+              </div>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <button
+                onClick={() => setShowUnpairModal(false)}
+                className="flex-1 py-2.5 rounded-xl bg-[#f4efe8] hover:bg-[#ede8e1] text-zinc-800 text-xs font-semibold transition-colors"
+              >
+                Stay Here
+              </button>
+              <button
+                onClick={() => {
+                  setShowUnpairModal(false);
+                  onUnpair();
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-[#ff5722] hover:bg-[#f4511e] text-white text-xs font-bold transition-colors shadow-xs"
+              >
+                Disconnect
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Android Widget Modal */}
       <WidgetModal 

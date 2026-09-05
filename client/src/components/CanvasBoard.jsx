@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { socket, getServerUrl } from '../services/socket';
+import { playPop } from '../services/sound';
 import { 
   Paintbrush, 
   Sparkles, 
@@ -9,7 +10,9 @@ import {
   Download, 
   Highlighter, 
   Heart, 
-  Smile, 
+  Check,
+  X,
+  AlertTriangle,
   MousePointer2 
 } from 'lucide-react';
 
@@ -28,10 +31,12 @@ const SIZES = [2, 4, 8, 14, 24];
 
 const STAMPS = [
   { icon: '❤️', label: 'Heart' },
+  { icon: '👑', label: 'President / Crown' },
+  { icon: '🌹', label: 'Rose' },
   { icon: '✨', label: 'Sparkle' },
   { icon: '💖', label: 'Sparkling Heart' },
+  { icon: '💍', label: 'Diamond Ring' },
   { icon: '💌', label: 'Love Letter' },
-  { icon: '🌹', label: 'Rose' },
   { icon: '⭐', label: 'Star' },
 ];
 
@@ -48,6 +53,11 @@ export default function CanvasBoard({ room, user, isActive = true }) {
   const [brushSize, setBrushSize] = useState(4);
   const [selectedStamp, setSelectedStamp] = useState('❤️');
 
+  // In-App Dialog & Toast states (replacing window.confirm/alert)
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [downloadToast, setDownloadToast] = useState(null);
+  const [hasStrokes, setHasStrokes] = useState(false);
+
   // Partner live cursor
   const [partnerCursor, setPartnerCursor] = useState(null);
   const partnerCursorTimerRef = useRef(null);
@@ -63,7 +73,7 @@ export default function CanvasBoard({ room, user, isActive = true }) {
     ctx.clearRect(0, 0, width, height);
 
     // Draw background texture grid dots
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.06)';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
     const dotSpacing = 28;
     for (let x = 14; x < width; x += dotSpacing) {
       for (let y = 14; y < height; y += dotSpacing) {
@@ -77,6 +87,8 @@ export default function CanvasBoard({ room, user, isActive = true }) {
     strokeHistoryRef.current.forEach((stroke) => {
       renderSingleStroke(ctx, stroke, width, height);
     });
+
+    setHasStrokes(strokeHistoryRef.current.length > 0);
   }, []);
 
   // Helper to render one stroke (normalized -> canvas pixels)
@@ -87,7 +99,7 @@ export default function CanvasBoard({ room, user, isActive = true }) {
       const x = stroke.x * width;
       const y = stroke.y * height;
       ctx.save();
-      ctx.font = `${stroke.size * 5 + 20}px 'Segoe UI Emoji', sans-serif`;
+      ctx.font = `${stroke.size * 5 + 22}px 'Segoe UI Emoji', Apple Color Emoji, sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(stroke.stamp, x, y);
@@ -208,6 +220,7 @@ export default function CanvasBoard({ room, user, isActive = true }) {
   useEffect(() => {
     if (room && room.canvasState) {
       strokeHistoryRef.current = [...room.canvasState];
+      setHasStrokes(room.canvasState.length > 0);
       redrawCanvas();
       if (room.canvasState.length > 0) {
         scheduleWidgetSnapshot();
@@ -219,6 +232,7 @@ export default function CanvasBoard({ room, user, isActive = true }) {
   useEffect(() => {
     const onIncomingStroke = (strokeData) => {
       strokeHistoryRef.current.push(strokeData);
+      setHasStrokes(true);
       const canvas = canvasRef.current;
       if (canvas) {
         const ctx = canvas.getContext('2d');
@@ -229,6 +243,7 @@ export default function CanvasBoard({ room, user, isActive = true }) {
 
     const onIncomingClear = () => {
       strokeHistoryRef.current = [];
+      setHasStrokes(false);
       const canvas = canvasRef.current;
       if (canvas) {
         redrawCanvas();
@@ -238,6 +253,7 @@ export default function CanvasBoard({ room, user, isActive = true }) {
 
     const onIncomingHistory = (newHistory) => {
       strokeHistoryRef.current = newHistory || [];
+      setHasStrokes((newHistory || []).length > 0);
       redrawCanvas();
       scheduleWidgetSnapshot();
     };
@@ -295,6 +311,8 @@ export default function CanvasBoard({ room, user, isActive = true }) {
         author: user?.name,
       };
       strokeHistoryRef.current.push(stampStroke);
+      setHasStrokes(true);
+      playPop();
       const canvas = canvasRef.current;
       if (canvas) {
         renderSingleStroke(canvas.getContext('2d'), stampStroke, canvas.width, canvas.height);
@@ -305,6 +323,7 @@ export default function CanvasBoard({ room, user, isActive = true }) {
     }
 
     isDrawingRef.current = true;
+    setHasStrokes(true);
     currentStrokeRef.current = {
       id: Math.random().toString(36).substring(2, 9),
       type: 'path',
@@ -388,21 +407,23 @@ export default function CanvasBoard({ room, user, isActive = true }) {
 
   // Undo
   const handleUndo = () => {
+    playPop();
     socket.emit('canvas:undo');
     scheduleWidgetSnapshot();
   };
 
-  // Clear Canvas
-  const handleClear = () => {
-    if (window.confirm('Clear canvas for both you and your partner?')) {
-      strokeHistoryRef.current = [];
-      redrawCanvas();
-      socket.emit('canvas:clear');
-      scheduleWidgetSnapshot();
-    }
+  // Clear Canvas Trigger
+  const confirmClearCanvas = () => {
+    strokeHistoryRef.current = [];
+    setHasStrokes(false);
+    redrawCanvas();
+    socket.emit('canvas:clear');
+    scheduleWidgetSnapshot();
+    setShowClearConfirm(false);
+    playPop();
   };
 
-  // Download drawing
+  // Download drawing with feedback
   const handleDownload = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -430,10 +451,24 @@ export default function CanvasBoard({ room, user, isActive = true }) {
     link.download = `partner-play-studio-${new Date().toISOString().slice(0, 10)}.png`;
     link.href = exportCanvas.toDataURL('image/png');
     link.click();
+
+    playPop();
+    setDownloadToast('Studio canvas saved to your device! 🎨');
+    setTimeout(() => setDownloadToast(null), 3000);
   };
 
   return (
     <div className="relative flex-1 flex flex-col h-full overflow-hidden select-none bg-[#fbf9f6]">
+      {/* Toast Feedback */}
+      {downloadToast && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 pointer-events-none animate-fadeIn">
+          <div className="bg-white text-zinc-900 border border-[#ffcdbc] shadow-[0_8px_24px_rgba(255,87,34,0.18)] rounded-full px-4 py-2 flex items-center gap-2 text-xs font-bold backdrop-blur-md">
+            <Check className="w-4 h-4 text-emerald-600" />
+            <span>{downloadToast}</span>
+          </div>
+        </div>
+      )}
+
       {/* Canvas Area */}
       <div 
         ref={containerRef} 
@@ -448,6 +483,16 @@ export default function CanvasBoard({ room, user, isActive = true }) {
           onPointerLeave={handlePointerUp}
           className="absolute inset-0 w-full h-full"
         />
+
+        {/* First Stroke Guidance Greeting */}
+        {!hasStrokes && (
+          <div className="absolute top-8 left-1/2 -translate-x-1/2 pointer-events-none z-10 transition-opacity duration-300">
+            <div className="px-4 py-2 rounded-full bg-white/95 backdrop-blur-md border border-[#ede8e1] shadow-sm flex items-center gap-2 text-xs font-semibold text-zinc-600">
+              <Sparkles className="w-3.5 h-3.5 text-[#ff5722]" />
+              <span>Draw or place stamps together in real-time</span>
+            </div>
+          </div>
+        )}
 
         {/* Live Partner Cursor Indicator */}
         {partnerCursor && (
@@ -475,8 +520,8 @@ export default function CanvasBoard({ room, user, isActive = true }) {
         )}
       </div>
 
-      {/* Floating Canvas Toolbar (Mobile-first responsive pill with smooth scroll) */}
-      <div className="absolute bottom-20 sm:bottom-4 left-1/2 -translate-x-1/2 z-30 w-[calc(100%-16px)] max-w-xl flex items-center justify-start sm:justify-center gap-1.5 p-1.5 sm:p-2 rounded-2xl bg-white shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-[#ede8e1] overflow-x-auto no-scrollbar transition-all">
+      {/* Floating Canvas Toolbar (Mobile-first responsive pill with smooth scroll & safe area) */}
+      <div className="absolute bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] sm:bottom-4 left-1/2 -translate-x-1/2 z-30 w-[calc(100%-16px)] max-w-xl flex items-center justify-start sm:justify-center gap-1.5 p-1.5 sm:p-2 rounded-2xl bg-white shadow-[0_4px_24px_rgba(0,0,0,0.08)] border border-[#ede8e1] overflow-x-auto no-scrollbar transition-all">
         {/* Tool Selectors */}
         <div className="flex items-center gap-0.5 border-r border-[#ede8e1] pr-1.5 flex-shrink-0">
           <button
@@ -541,7 +586,10 @@ export default function CanvasBoard({ room, user, isActive = true }) {
             {STAMPS.map((s) => (
               <button
                 key={s.icon}
-                onClick={() => setSelectedStamp(s.icon)}
+                onClick={() => {
+                  setSelectedStamp(s.icon);
+                  playPop();
+                }}
                 className={`w-7 h-7 flex items-center justify-center text-sm rounded-lg transition-transform ${
                   selectedStamp === s.icon ? 'scale-110 bg-[#fff3ef] border border-[#ffcdbc]' : 'hover:scale-105 hover:bg-[#f4efe8]'
                 }`}
@@ -602,7 +650,7 @@ export default function CanvasBoard({ room, user, isActive = true }) {
           </button>
           <button
             id="canvas-clear-btn"
-            onClick={handleClear}
+            onClick={() => setShowClearConfirm(true)}
             title="Clear Board"
             className="p-1.5 text-[#ef4444] hover:text-[#dc2626] hover:bg-[#fee2e2] rounded-xl transition-all"
           >
@@ -618,6 +666,38 @@ export default function CanvasBoard({ room, user, isActive = true }) {
           </button>
         </div>
       </div>
+
+      {/* Custom In-App Clear Board Confirmation Modal */}
+      {showClearConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-fadeIn">
+          <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl border border-[#ede8e1] space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center border border-red-200 shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-zinc-900">Clear Canvas?</h3>
+                <p className="text-xs text-zinc-500">This will clear the drawing for both of you.</p>
+              </div>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <button
+                onClick={() => setShowClearConfirm(false)}
+                className="flex-1 py-2.5 rounded-xl bg-[#f4efe8] hover:bg-[#ede8e1] text-zinc-800 text-xs font-semibold transition-colors"
+              >
+                Keep Drawing
+              </button>
+              <button
+                onClick={confirmClearCanvas}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-colors shadow-xs"
+              >
+                Clear for Both
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

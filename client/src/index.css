@@ -115,6 +115,42 @@ body {
   box-shadow: 0 0 0 1px #ff5722, 0 2px 8px rgba(255, 87, 34, 0.15);
 }
 
+/* Safe Area Inset Helpers */
+.pb-safe {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+}
+
+.mb-safe {
+  margin-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+}
+
+/* Audio Player Range Slider Luxury Styling */
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  height: 14px;
+  width: 14px;
+  border-radius: 50%;
+  background: #ff5722;
+  box-shadow: 0 1px 4px rgba(255, 87, 34, 0.4);
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 2px 8px rgba(255, 87, 34, 0.6);
+}
+
+input[type="range"]::-moz-range-thumb {
+  height: 14px;
+  width: 14px;
+  border-radius: 50%;
+  background: #ff5722;
+  border: none;
+  box-shadow: 0 1px 4px rgba(255, 87, 34, 0.4);
+  cursor: pointer;
+}
+
 /* Subtle scrollbars */
 ::-webkit-scrollbar {
   width: 5px;
@@ -140,4 +176,28 @@ body {
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* Smooth Floating Reaction Balloons Animation */
+@keyframes floatUpAndSway {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 0) scale(0.6) rotate(0deg);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(calc(-50% + 8px), -30px) scale(1.15) rotate(4deg);
+  }
+  40% {
+    opacity: 1;
+    transform: translate(calc(-50% - 12px), -90px) scale(1.05) rotate(-5deg);
+  }
+  75% {
+    opacity: 0.95;
+    transform: translate(calc(-50% + 10px), -170px) scale(1) rotate(3deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% - 6px), -240px) scale(0.8) rotate(-2deg);
+  }
 }

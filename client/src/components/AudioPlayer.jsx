@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { socket } from '../services/socket';
+import { playPop } from '../services/sound';
 import { 
   Play, 
   Pause, 
@@ -12,7 +13,15 @@ import {
   Film, 
   RotateCcw,
   Headphones,
-  Plus
+  Plus,
+  Moon,
+  CloudRain,
+  Flame,
+  Sunset,
+  Coffee,
+  Music,
+  Heart,
+  AlertCircle
 } from 'lucide-react';
 
 export const PRESET_TRACKS = [
@@ -23,7 +32,7 @@ export const PRESET_TRACKS = [
     genre: 'Lo-Fi Chill',
     source: 'ambient',
     url: 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3',
-    cover: '🌙',
+    icon: 'moon',
     color: 'bg-emerald-50 text-emerald-600 border-emerald-200',
     duration: 147,
   },
@@ -34,7 +43,7 @@ export const PRESET_TRACKS = [
     genre: 'Rain & Piano',
     source: 'ambient',
     url: 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3?filename=rain-and-nostalgia-20516.mp3',
-    cover: '🌧️',
+    icon: 'rain',
     color: 'bg-sky-50 text-sky-600 border-sky-200',
     duration: 168,
   },
@@ -45,7 +54,7 @@ export const PRESET_TRACKS = [
     genre: 'Acoustic Love',
     source: 'ambient',
     url: 'https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=sweet-love-112705.mp3',
-    cover: '✨',
+    icon: 'sparkles',
     color: 'bg-purple-50 text-purple-600 border-purple-200',
     duration: 154,
   },
@@ -56,7 +65,7 @@ export const PRESET_TRACKS = [
     genre: 'Fireside Chill',
     source: 'ambient',
     url: 'https://cdn.pixabay.com/download/audio/2022/10/14/audio_9939f77c30.mp3?filename=relaxing-guitar-loop-124976.mp3',
-    cover: '🔥',
+    icon: 'flame',
     color: 'bg-orange-50 text-orange-600 border-orange-200',
     duration: 120,
   },
@@ -67,7 +76,7 @@ export const PRESET_TRACKS = [
     genre: 'Lofi Live',
     source: 'youtube',
     videoId: 'jfKfPfyJRdk',
-    cover: '🎧',
+    icon: 'headphones',
     color: 'bg-rose-50 text-rose-600 border-rose-200',
     duration: 0,
   },
@@ -78,7 +87,7 @@ export const PRESET_TRACKS = [
     genre: 'Synthwave',
     source: 'youtube',
     videoId: '4xDzrJKXOOY',
-    cover: '🌆',
+    icon: 'sunset',
     color: 'bg-amber-50 text-amber-600 border-amber-200',
     duration: 0,
   },
@@ -89,11 +98,26 @@ export const PRESET_TRACKS = [
     genre: 'Coffee Jazz',
     source: 'youtube',
     videoId: '-5KAN9_CzSA',
-    cover: '☕',
+    icon: 'coffee',
     color: 'bg-stone-100 text-stone-700 border-stone-300',
     duration: 0,
   },
 ];
+
+// Bespoke icon renderer for tracks
+export function renderTrackIcon(iconName, className = 'w-4 h-4') {
+  switch (iconName) {
+    case 'moon': return <Moon className={className} />;
+    case 'rain': return <CloudRain className={className} />;
+    case 'sparkles': return <Sparkles className={className} />;
+    case 'flame': return <Flame className={className} />;
+    case 'headphones': return <Headphones className={className} />;
+    case 'sunset': return <Sunset className={className} />;
+    case 'coffee': return <Coffee className={className} />;
+    case 'heart': return <Heart className={className} />;
+    default: return <Music className={className} />;
+  }
+}
 
 function extractYouTubeId(url) {
   if (!url) return null;
@@ -124,6 +148,7 @@ export default function AudioPlayer({
   const [isMuted, setIsMuted] = useState(false);
   const [syncStatus, setSyncStatus] = useState('In Sync');
   const [customYoutubeUrl, setCustomYoutubeUrl] = useState('');
+  const [youtubeError, setYoutubeError] = useState('');
   const [selectedGenre, setSelectedGenre] = useState('all');
   const [showVideoEmbed, setShowVideoEmbed] = useState(false);
 
@@ -357,6 +382,7 @@ export default function AudioPlayer({
   };
 
   const selectTrack = (track) => {
+    playPop();
     setCurrentTrack(track);
     setIsPlaying(true);
     setCurrentTime(0);
@@ -389,9 +415,11 @@ export default function AudioPlayer({
 
   const handleCustomYoutubeSubmit = (e) => {
     e.preventDefault();
+    setYoutubeError('');
     const videoId = extractYouTubeId(customYoutubeUrl);
     if (!videoId) {
-      alert('Please enter a valid YouTube video link or ID');
+      setYoutubeError('Please enter a valid YouTube video link or ID');
+      setTimeout(() => setYoutubeError(''), 4000);
       return;
     }
 
@@ -401,7 +429,7 @@ export default function AudioPlayer({
       title: 'YouTube Stream',
       artist: 'Partner Request',
       genre: 'YouTube Video',
-      cover: '▶️',
+      icon: 'headphones',
       color: 'bg-rose-50 text-rose-600 border-rose-200',
       source: 'youtube',
       duration: 0,
@@ -562,9 +590,11 @@ export default function AudioPlayer({
                   <div className="absolute inset-6 rounded-full border border-white/5" />
                   <div className="absolute inset-9 rounded-full border border-white/5" />
                   
-                  {/* Center Label (Matches Studio Coral) */}
+                  {/* Center Label (Matches Studio Coral with Vector Icon) */}
                   <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-full bg-gradient-to-tr from-[#ff5722] to-[#ff6b35] flex flex-col items-center justify-center text-white shadow-md border-2 border-white/20">
-                    <span className="text-base sm:text-lg">{currentTrack.cover || '❤️'}</span>
+                    <div className="text-white drop-shadow-xs">
+                      {renderTrackIcon(currentTrack.icon, 'w-6 h-6')}
+                    </div>
                     <span className="text-[7px] font-bold uppercase opacity-90 mt-0.5 tracking-wider">DUO PLAY</span>
                   </div>
 
@@ -669,6 +699,12 @@ export default function AudioPlayer({
               <span>Play for Both</span>
             </button>
           </form>
+          {youtubeError && (
+            <div className="flex items-center gap-1.5 mt-2.5 px-3 py-1.5 rounded-xl bg-red-50 text-red-600 border border-red-200 text-xs animate-fadeIn">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+              <span>{youtubeError}</span>
+            </div>
+          )}
         </div>
 
         {/* Curated Duo Stations Card (Matches Persona Fleet List in screenshot) */}
@@ -731,8 +767,8 @@ export default function AudioPlayer({
                   }`}
                 >
                   <div className="flex items-center gap-3 min-w-0 mr-2 flex-1">
-                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm border flex-shrink-0 ${track.color}`}>
-                      {track.cover || '🎵'}
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center border flex-shrink-0 ${track.color}`}>
+                      {renderTrackIcon(track.icon, 'w-4 h-4')}
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className={`text-xs font-bold truncate ${isCurrent ? 'text-[#ff5722]' : 'text-zinc-900'}`}>
@@ -768,6 +804,22 @@ export default function AudioPlayer({
         </div>
 
       </div>
+
+      {/* Floating Mobile Autoplay Tune-In Prompt */}
+      {syncStatus === 'Tap Play to Tune In' && (
+        <div className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 animate-bounce pointer-events-auto">
+          <button
+            onClick={() => {
+              togglePlay();
+              setSyncStatus('In Sync');
+            }}
+            className="px-4 py-2 rounded-full bg-[#ff5722] hover:bg-[#f4511e] text-white text-xs font-bold shadow-lg flex items-center gap-2 transition-all active:scale-95"
+          >
+            <Play className="w-3.5 h-3.5 fill-current" />
+            <span>Partner started music • Tap to tune in</span>
+          </button>
+        </div>
+      )}
     </>
   );
 }

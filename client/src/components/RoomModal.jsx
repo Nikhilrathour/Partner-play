@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { socketCreateRoom, socketJoinRoom, getServerUrl, setCustomServerUrl } from '../services/socket';
-import { Heart, Sparkles, Copy, Check, ArrowRight } from 'lucide-react';
+import { playPop } from '../services/sound';
+import { Heart, Sparkles, Copy, Check, ArrowRight, Settings, ChevronDown, ChevronUp } from 'lucide-react';
 import AppIcon from './AppIcon';
 
 const AVATAR_COLORS = ['#ff5722', '#7c3aed', '#0284c7', '#f43f5e', '#059669', '#f59e0b'];
@@ -14,6 +15,8 @@ export default function RoomModal({ isOpen, onClose, onJoined, currentRoomCode }
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [copiedLink, setCopiedLink] = useState(false);
+  const [showServerConfig, setShowServerConfig] = useState(false);
+  const [serverInput, setServerInput] = useState(getServerUrl());
 
   // Check URL query parameters for auto room code fill
   useEffect(() => {
@@ -273,25 +276,59 @@ export default function RoomModal({ isOpen, onClose, onJoined, currentRoomCode }
           </div>
         )}
 
-        {/* Server Connection Status & Config */}
-        <div className="mt-4 pt-3 border-t border-[#ede8e1] flex items-center justify-between text-[11px] text-zinc-500">
-          <span className="flex items-center gap-1.5 truncate max-w-[240px]">
-            <AppIcon name="settings" className="w-4 h-4 shrink-0" />
-            <span className="truncate">Server: <span className="font-mono text-zinc-700">{getServerUrl().replace(/^https?:\/\//, '')}</span></span>
-          </span>
-          <button
-            type="button"
-            onClick={() => {
-              const current = getServerUrl();
-              const newUrl = prompt('Enter Server URL:', current);
-              if (newUrl !== null) {
-                setCustomServerUrl(newUrl);
-              }
-            }}
-            className="text-[#ff5722] hover:underline font-medium ml-2 shrink-0"
-          >
-            Change
-          </button>
+        {/* Server Connection Status & Config (Inline expandable, zero browser prompts) */}
+        <div className="mt-4 pt-3 border-t border-[#ede8e1]">
+          <div className="flex items-center justify-between text-[11px] text-zinc-500">
+            <span className="flex items-center gap-1.5 truncate max-w-[240px]">
+              <AppIcon name="settings" className="w-4 h-4 shrink-0" />
+              <span className="truncate">Server: <span className="font-mono text-zinc-700">{getServerUrl().replace(/^https?:\/\//, '')}</span></span>
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setShowServerConfig(!showServerConfig);
+                playPop();
+              }}
+              className="text-[#ff5722] hover:underline font-medium ml-2 shrink-0 flex items-center gap-0.5"
+            >
+              <span>{showServerConfig ? 'Close' : 'Change'}</span>
+              {showServerConfig ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            </button>
+          </div>
+
+          {showServerConfig && (
+            <div className="mt-2.5 p-3 rounded-2xl bg-[#fbf9f6] border border-[#ede8e1] space-y-2 animate-fadeIn">
+              <label className="block text-[11px] font-bold text-zinc-700">
+                Custom Server URL
+              </label>
+              <input
+                type="text"
+                value={serverInput}
+                onChange={(e) => setServerInput(e.target.value)}
+                placeholder="https://partner-play-production.up.railway.app"
+                className="w-full px-3 py-1.5 text-xs font-mono rounded-xl bg-white border border-[#ede8e1] focus:outline-none focus:border-[#ff5722]"
+              />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCustomServerUrl(serverInput)}
+                  className="flex-1 py-1.5 rounded-lg bg-[#ff5722] hover:bg-[#f4511e] text-white text-[11px] font-bold transition-colors"
+                >
+                  Save & Reconnect
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCustomServerUrl('');
+                    setServerInput('https://partner-play-production.up.railway.app');
+                  }}
+                  className="px-2.5 py-1.5 rounded-lg bg-white border border-[#ede8e1] text-zinc-600 hover:text-zinc-900 text-[11px] font-medium transition-colors"
+                >
+                  Reset Default
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

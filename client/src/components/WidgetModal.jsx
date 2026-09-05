@@ -10,14 +10,17 @@ import {
   Layers, 
   RefreshCw, 
   Download,
-  Flame
+  Flame,
+  Info
 } from 'lucide-react';
 import { getServerUrl } from '../services/socket';
+import { playPop } from '../services/sound';
 
 export default function WidgetModal({ isOpen, onClose, room, user }) {
   const [copied, setCopied] = useState(false);
   const [isPinning, setIsPinning] = useState(false);
   const [pinSuccess, setPinSuccess] = useState(false);
+  const [webPinNotice, setWebPinNotice] = useState(false);
   const [widgetMeta, setWidgetMeta] = useState(null);
   const [refreshKey, setRefreshKey] = useState(Date.now());
 
@@ -49,6 +52,7 @@ export default function WidgetModal({ isOpen, onClose, room, user }) {
 
   const copyRoomCode = () => {
     navigator.clipboard.writeText(roomCode);
+    playPop();
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -62,9 +66,9 @@ export default function WidgetModal({ isOpen, onClose, room, user }) {
           serverUrl: getServerUrl() 
         });
         setPinSuccess(true);
+        playPop();
       } else {
-        // If not in native app, open explanation or trigger pin alert
-        alert('To pin natively in 1 tap, open Partner Play inside the Android app. On regular web, use the instructions below to add the widget via your home screen!');
+        setWebPinNotice(true);
       }
     } catch (err) {
       console.error('Widget pin failed:', err);
@@ -122,18 +126,22 @@ export default function WidgetModal({ isOpen, onClose, room, user }) {
 
             {/* Widget Container Mockup */}
             <div className="w-full aspect-[4/3] max-h-52 rounded-xl bg-[#fbf9f6] text-zinc-800 p-2.5 relative shadow-inner overflow-hidden border-2 border-white/20 flex flex-col justify-between">
-              {/* Image Preview */}
+              {/* Image Preview or Decorative Placeholder */}
               <div className="absolute inset-0 flex items-center justify-center">
-                <img 
-                  key={refreshKey}
-                  src={`${getServerUrl()}/api/room/${roomCode}/widget.png?t=${refreshKey}`}
-                  alt="Live Canvas Widget"
-                  className="w-full h-full object-contain"
-                  onError={(e) => {
-                    // Fallback to placeholder message
-                    e.target.style.display = 'none';
-                  }}
-                />
+                {widgetMeta?.hasDrawing ? (
+                  <img 
+                    key={refreshKey}
+                    src={`${getServerUrl()}/api/room/${roomCode}/widget.png?t=${refreshKey}`}
+                    alt="Live Canvas Widget"
+                    className="w-full h-full object-contain"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center p-4 text-center">
+                    <Heart className="w-8 h-8 text-[#ff5722] fill-[#ff5722]/20 mb-1.5 animate-pulse" />
+                    <p className="text-xs font-bold text-zinc-700">Studio Widget Preview</p>
+                    <p className="text-[10px] text-zinc-400 mt-0.5">Draw together on the canvas to see your live sketches appear here!</p>
+                  </div>
+                )}
               </div>
 
               {/* Top Widget Bar */}
@@ -158,6 +166,19 @@ export default function WidgetModal({ isOpen, onClose, room, user }) {
               </div>
             </div>
           </div>
+
+          {/* Web Pin Notice Callout */}
+          {webPinNotice && (
+            <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start gap-2.5 animate-fadeIn">
+              <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-bold">Android Home Screen Widget</p>
+                <p className="text-[11px] text-amber-800 leading-relaxed">
+                  To pin the widget directly in 1 tap, open Partner Play inside the Android APK app. On regular mobile browsers, long press your phone home screen and select Widgets &rarr; Partner Play.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Quick Room Code Box */}
           <div className="p-3.5 rounded-2xl bg-[#f7f5f0] border border-[#ede8e1] flex items-center justify-between gap-3">

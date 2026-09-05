@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { socket } from '../services/socket';
-import { StickyNote, Trash2, X, Send, Heart, MessageSquareHeart } from 'lucide-react';
+import { playPop } from '../services/sound';
+import { StickyNote, Trash2, X, Send, Heart, MessageSquareHeart, Check, Sparkles } from 'lucide-react';
 
 const NOTE_COLORS = [
   { hex: '#fffbeb', border: '#fde68a', text: '#451a03', label: 'Warm Honey' },
@@ -10,10 +11,32 @@ const NOTE_COLORS = [
   { hex: '#f0f9ff', border: '#bae6fd', text: '#0c4a6e', label: 'Sky Blue' },
 ];
 
+function formatNoteDate(timestamp) {
+  if (!timestamp) return '';
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+
+  const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const isToday = date.toDateString() === now.toDateString();
+  if (isToday) return `Today, ${timeStr}`;
+
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (date.toDateString() === yesterday.toDateString()) return `Yesterday, ${timeStr}`;
+
+  return `${date.toLocaleDateString([], { month: 'short', day: 'numeric' })}, ${timeStr}`;
+}
+
 export default function WhisperNotes({ room, user, isOpen, onClose, asTab = false }) {
   const [notes, setNotes] = useState(room?.notes || []);
   const [newNoteText, setNewNoteText] = useState('');
   const [selectedColor, setSelectedColor] = useState(NOTE_COLORS[0].hex);
+  const [toastMessage, setToastMessage] = useState(null);
 
   // Sync incoming notes from server
   useEffect(() => {
@@ -43,11 +66,17 @@ export default function WhisperNotes({ room, user, isOpen, onClose, asTab = fals
       color: selectedColor,
     });
 
+    playPop();
     setNewNoteText('');
+    setToastMessage('Note pinned to the board! 💌');
+    setTimeout(() => setToastMessage(null), 2500);
   };
 
   const handleDeleteNote = (id) => {
     socket.emit('note:delete', id);
+    playPop();
+    setToastMessage('Note removed');
+    setTimeout(() => setToastMessage(null), 2000);
   };
 
   // Helper to get border/text style based on hex
@@ -59,7 +88,17 @@ export default function WhisperNotes({ room, user, isOpen, onClose, asTab = fals
   // 1. FULL DEDICATED TAB VIEW
   if (asTab) {
     return (
-      <div className="flex-1 flex flex-col h-full overflow-y-auto p-4 sm:p-6 lg:p-8 animate-fadeIn max-w-5xl mx-auto w-full bg-[#fbf9f6]">
+      <div className="flex-1 flex flex-col h-full overflow-y-auto p-4 sm:p-6 lg:p-8 animate-fadeIn max-w-5xl mx-auto w-full bg-[#fbf9f6] relative">
+        {/* Toast */}
+        {toastMessage && (
+          <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 pointer-events-none animate-fadeIn">
+            <div className="bg-white text-zinc-900 border border-[#ffcdbc] shadow-[0_8px_24px_rgba(255,87,34,0.18)] rounded-full px-4 py-1.5 flex items-center gap-2 text-xs font-bold backdrop-blur-md">
+              <Check className="w-3.5 h-3.5 text-emerald-600" />
+              <span>{toastMessage}</span>
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-[#ede8e1]">
           <div className="flex items-center gap-3.5">
@@ -74,7 +113,7 @@ export default function WhisperNotes({ room, user, isOpen, onClose, asTab = fals
                 </span>
               </h2>
               <p className="text-xs sm:text-sm text-[#71717a] mt-0.5">
-                Leave cute thoughts, doodle reminders, and sweet letters for your partner
+                Leave cute thoughts, secret letters, and daily reminders for your partner
               </p>
             </div>
           </div>
@@ -83,13 +122,18 @@ export default function WhisperNotes({ room, user, isOpen, onClose, asTab = fals
         {/* Compose Card */}
         <div className="my-6 p-5 rounded-2xl bg-white border border-[#ede8e1] shadow-[0_2px_12px_rgba(0,0,0,0.03)] max-w-2xl">
           <form onSubmit={handleAddNote} className="space-y-3.5">
-            <label className="block text-xs font-bold text-[#18181b]">
-              Pin a New Note to the Board
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-bold text-[#18181b]">
+                Pin a New Note to the Board
+              </label>
+              <span className={`text-[11px] font-mono ${newNoteText.length > 450 ? 'text-red-500 font-bold' : 'text-zinc-400'}`}>
+                {newNoteText.length}/500
+              </span>
+            </div>
             <textarea
               value={newNoteText}
-              onChange={(e) => setNewNoteText(e.target.value)}
-              placeholder="Write a sweet whisper or loving thought for your partner..."
+              onChange={(e) => setNewNoteText(e.target.value.slice(0, 500))}
+              placeholder="Write a sweet whisper, loving thought, or reminder for your partner..."
               rows={3}
               className="w-full bg-[#fbf9f6] text-sm p-3.5 rounded-xl border border-[#ede8e1] focus:outline-none focus:border-[#ff5722] text-[#18181b] placeholder:text-[#a1a1aa] resize-none transition-colors"
             />
@@ -101,7 +145,10 @@ export default function WhisperNotes({ room, user, isOpen, onClose, asTab = fals
                     <button
                       key={c.hex}
                       type="button"
-                      onClick={() => setSelectedColor(c.hex)}
+                      onClick={() => {
+                        setSelectedColor(c.hex);
+                        playPop();
+                      }}
                       className={`w-6 h-6 rounded-full border transition-transform ${
                         selectedColor === c.hex 
                           ? 'scale-125 ring-2 ring-[#ff5722] ring-offset-2 shadow-sm' 
@@ -127,12 +174,16 @@ export default function WhisperNotes({ room, user, isOpen, onClose, asTab = fals
         </div>
 
         {/* Notes Grid / Wall */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 pb-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 pb-16">
           {notes.length === 0 ? (
-            <div className="col-span-full text-center py-16 text-[#71717a] bg-white rounded-2xl border border-dashed border-[#ede8e1] p-8">
-              <StickyNote className="w-12 h-12 mx-auto text-[#d4cfc7] mb-3 stroke-1" />
-              <p className="text-sm font-bold text-[#18181b]">Your Love Board is Empty</p>
-              <p className="text-xs text-[#71717a] mt-1">Write your very first whisper note above!</p>
+            <div className="col-span-full text-center py-16 text-[#71717a] bg-white rounded-3xl border border-dashed border-[#ede8e1] p-8 space-y-2">
+              <div className="w-14 h-14 rounded-2xl bg-[#fff3ef] border border-[#ffcdbc] text-[#ff5722] flex items-center justify-center mx-auto mb-2">
+                <Sparkles className="w-7 h-7" />
+              </div>
+              <h3 className="text-base font-bold text-[#18181b]">Your Love Board is Empty</h3>
+              <p className="text-xs text-[#71717a] max-w-sm mx-auto">
+                Write your first sweet thought or letter above to surprise your partner!
+              </p>
             </div>
           ) : (
             notes.map((note) => {
@@ -154,7 +205,7 @@ export default function WhisperNotes({ room, user, isOpen, onClose, asTab = fals
                     <span className="font-bold flex items-center gap-1.5">
                       <Heart className="w-3 h-3 fill-[#ff5722] text-[#ff5722]" /> {note.author}
                     </span>
-                    <span>{new Date(note.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    <span>{formatNoteDate(note.timestamp)}</span>
                   </div>
                   <button
                     onClick={() => handleDeleteNote(note.id)}
@@ -197,10 +248,10 @@ export default function WhisperNotes({ room, user, isOpen, onClose, asTab = fals
 
       <div className="flex-1 overflow-y-auto py-4 space-y-3 pr-1">
         {notes.length === 0 ? (
-          <div className="text-center py-12 text-[#71717a]">
+          <div className="text-center py-12 text-[#71717a] space-y-1">
             <StickyNote className="w-10 h-10 mx-auto text-[#d4cfc7] mb-2 stroke-1" />
             <p className="text-xs font-semibold text-[#18181b]">No whisper notes yet.</p>
-            <p className="text-[11px] text-[#71717a] mt-0.5">Leave a sweet message for your partner!</p>
+            <p className="text-[11px] text-[#71717a]">Leave a sweet message for your partner!</p>
           </div>
         ) : (
           notes.map((note) => {
@@ -220,7 +271,7 @@ export default function WhisperNotes({ room, user, isOpen, onClose, asTab = fals
                 </p>
                 <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-black/10 text-[10px] opacity-70">
                   <span className="font-semibold">— {note.author}</span>
-                  <span>{new Date(note.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                  <span>{formatNoteDate(note.timestamp)}</span>
                 </div>
                 <button
                   onClick={() => handleDeleteNote(note.id)}
@@ -238,7 +289,7 @@ export default function WhisperNotes({ room, user, isOpen, onClose, asTab = fals
       <form onSubmit={handleAddNote} className="pt-3 border-t border-[#ede8e1] space-y-2.5">
         <textarea
           value={newNoteText}
-          onChange={(e) => setNewNoteText(e.target.value)}
+          onChange={(e) => setNewNoteText(e.target.value.slice(0, 500))}
           placeholder="Leave a message for your partner..."
           rows={3}
           className="w-full bg-[#fbf9f6] text-xs p-3 rounded-xl border border-[#ede8e1] focus:outline-none focus:border-[#ff5722] text-[#18181b] placeholder:text-[#a1a1aa] resize-none"
@@ -250,7 +301,10 @@ export default function WhisperNotes({ room, user, isOpen, onClose, asTab = fals
               <button
                 key={c.hex}
                 type="button"
-                onClick={() => setSelectedColor(c.hex)}
+                onClick={() => {
+                  setSelectedColor(c.hex);
+                  playPop();
+                }}
                 className={`w-5 h-5 rounded-full border transition-transform ${
                   selectedColor === c.hex 
                     ? 'scale-125 ring-2 ring-[#ff5722] ring-offset-1' 

@@ -1,15 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import { socket } from '../services/socket';
+import { playChime, playPop, triggerHaptic } from '../services/sound';
 import { Heart, X } from 'lucide-react';
 
 const REACTION_ITEMS = [
   { emoji: '🧡', label: 'Orange Heart' },
+  { emoji: '👑', label: 'President / Queen' },
   { emoji: '💖', label: 'Sparkle Heart' },
   { emoji: '💋', label: 'Kiss' },
   { emoji: '✨', label: 'Magic' },
+  { emoji: '🌹', label: 'Rose' },
   { emoji: '🔥', label: 'Fire' },
-  { emoji: '🥺', label: 'Aww' },
   { emoji: '🎉', label: 'Party' },
 ];
 
@@ -34,17 +36,18 @@ export default function ReactionsOverlay({ user }) {
   // Listen for incoming partner reactions
   useEffect(() => {
     const handleIncomingReaction = (reaction) => {
-      if (reaction.emoji === '🧡' || reaction.emoji === '💖' || reaction.emoji === '❤️') {
+      playChime();
+      if (reaction.emoji === '🧡' || reaction.emoji === '💖' || reaction.emoji === '❤️' || reaction.emoji === '👑') {
         confetti({
-          particleCount: 30,
+          particleCount: 35,
           spread: 60,
           origin: { x: reaction.x || 0.5, y: reaction.y || 0.5 },
           colors: ['#ff5722', '#ff8a65', '#ffd54f', '#ec4899', '#7c3aed'],
         });
       } else if (reaction.emoji === '🎉') {
         confetti({
-          particleCount: 40,
-          spread: 80,
+          particleCount: 45,
+          spread: 85,
           origin: { x: reaction.x || 0.5, y: reaction.y || 0.5 },
         });
       }
@@ -52,7 +55,7 @@ export default function ReactionsOverlay({ user }) {
       setActiveReactions((prev) => [...prev, reaction]);
       setTimeout(() => {
         setActiveReactions((prev) => prev.filter((r) => r.id !== reaction.id));
-      }, 2500);
+      }, 2800);
     };
 
     socket.on('reaction:send', handleIncomingReaction);
@@ -63,6 +66,8 @@ export default function ReactionsOverlay({ user }) {
 
   // Send reaction
   const triggerReaction = (emoji) => {
+    playPop();
+    triggerHaptic(25);
     const randomX = 0.25 + Math.random() * 0.5;
     const randomY = 0.6 + Math.random() * 0.2;
 
@@ -74,9 +79,9 @@ export default function ReactionsOverlay({ user }) {
       sender: user?.name || 'You',
     };
 
-    if (emoji === '🧡' || emoji === '💖' || emoji === '❤️') {
+    if (emoji === '🧡' || emoji === '💖' || emoji === '❤️' || emoji === '👑') {
       confetti({
-        particleCount: 25,
+        particleCount: 30,
         spread: 50,
         origin: { x: randomX, y: randomY },
         colors: ['#ff5722', '#ff8a65', '#ffd54f', '#ec4899', '#7c3aed'],
@@ -86,14 +91,14 @@ export default function ReactionsOverlay({ user }) {
     setActiveReactions((prev) => [...prev, reaction]);
     setTimeout(() => {
       setActiveReactions((prev) => prev.filter((r) => r.id !== reaction.id));
-    }, 2500);
+    }, 2800);
 
     socket.emit('reaction:send', { emoji, x: randomX, y: randomY });
   };
 
   return (
     <>
-      {/* Floating Animated Emojis on Screen */}
+      {/* Floating Animated Emojis on Screen with organic sway */}
       <div className="fixed inset-0 pointer-events-none z-40 overflow-hidden">
         {activeReactions.map((r) => (
           <div
@@ -103,7 +108,7 @@ export default function ReactionsOverlay({ user }) {
               left: `${r.x * 100}%`,
               top: `${r.y * 100}%`,
               transform: 'translate(-50%, -50%)',
-              animation: 'floatUp 2.5s ease-out forwards',
+              animation: 'floatUpAndSway 2.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards',
             }}
           >
             <span className="text-3xl sm:text-4xl drop-shadow-md filter">{r.emoji}</span>
@@ -114,8 +119,11 @@ export default function ReactionsOverlay({ user }) {
         ))}
       </div>
 
-      {/* Mobile-First Reaction FAB */}
-      <div ref={menuRef} className="fixed right-3 bottom-20 min-[460px]:bottom-6 z-30 flex items-center">
+      {/* Mobile-First Reaction FAB with safe area */}
+      <div 
+        ref={menuRef} 
+        className="fixed right-3 bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] sm:bottom-6 z-30 flex items-center"
+      >
         {/* Expanded horizontal emoji tray */}
         {isMenuOpen && (
           <div className="flex items-center gap-1 p-1.5 mr-2 rounded-2xl bg-white shadow-[0_4px_24px_rgba(0,0,0,0.1)] border border-[#ede8e1] animate-fadeIn">
@@ -137,7 +145,10 @@ export default function ReactionsOverlay({ user }) {
 
         {/* Main Floating Trigger Button */}
         <button
-          onClick={() => setIsMenuOpen(!isMenuOpen)}
+          onClick={() => {
+            playPop();
+            setIsMenuOpen(!isMenuOpen);
+          }}
           className={`w-11 h-11 rounded-full flex items-center justify-center shadow-lg transition-all active:scale-95 ${
             isMenuOpen 
               ? 'bg-white text-[#18181b] border border-[#ede8e1]' 
@@ -148,27 +159,6 @@ export default function ReactionsOverlay({ user }) {
           {isMenuOpen ? <X className="w-5 h-5" /> : <Heart className="w-5 h-5 fill-current" />}
         </button>
       </div>
-
-      <style>{`
-        @keyframes floatUp {
-          0% {
-            opacity: 0;
-            transform: translate(-50%, 0) scale(0.6);
-          }
-          15% {
-            opacity: 1;
-            transform: translate(-50%, -20px) scale(1.15);
-          }
-          80% {
-            opacity: 0.9;
-            transform: translate(-50%, -100px) scale(1);
-          }
-          100% {
-            opacity: 0;
-            transform: translate(-50%, -150px) scale(0.8);
-          }
-        }
-      `}</style>
     </>
   );
 }
