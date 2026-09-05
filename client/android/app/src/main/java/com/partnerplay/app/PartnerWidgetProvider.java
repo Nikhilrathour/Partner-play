@@ -54,10 +54,11 @@ public class PartnerWidgetProvider extends AppWidgetProvider {
     public static void updateAppWidget(Context context, AppWidgetManager appWidgetManager, int appWidgetId) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         String roomCode = prefs.getString(KEY_ROOM_CODE, "LOVE99");
-        String serverUrl = prefs.getString(KEY_SERVER_URL, "https://partner-play-production.up.railway.app");
+        String serverUrl = prefs.getString(KEY_SERVER_URL, "https://love.getfuckingclients.com");
 
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_partner_play);
         views.setTextViewText(R.id.widget_room_code, "❤️ Studio " + roomCode);
+        views.setTextViewText(R.id.widget_status_text, "Live Sync");
 
         // Intent to launch full studio app on widget tap
         Intent intent = new Intent(context, MainActivity.class);
@@ -72,6 +73,13 @@ public class PartnerWidgetProvider extends AppWidgetProvider {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
         views.setOnClickPendingIntent(R.id.widget_root, pendingIntent);
+
+        // Immediately update with initial layout so widget appears instantly without errors
+        try {
+            appWidgetManager.updateAppWidget(appWidgetId, views);
+        } catch (Exception e) {
+            Log.e(TAG, "Error performing initial widget update", e);
+        }
 
         // Fetch widget drawing PNG in background thread
         networkExecutor.execute(() -> {
@@ -97,13 +105,21 @@ public class PartnerWidgetProvider extends AppWidgetProvider {
 
             final Bitmap finalBitmap = bitmap;
             mainHandler.post(() -> {
-                if (finalBitmap != null) {
-                    views.setImageViewBitmap(R.id.widget_canvas_image, finalBitmap);
-                    views.setTextViewText(R.id.widget_status_text, "Synced");
-                } else {
-                    views.setTextViewText(R.id.widget_status_text, "Tap to draw");
+                try {
+                    RemoteViews updateViews = new RemoteViews(context.getPackageName(), R.layout.widget_partner_play);
+                    updateViews.setTextViewText(R.id.widget_room_code, "❤️ Studio " + roomCode);
+                    updateViews.setOnClickPendingIntent(R.id.widget_root, pendingIntent);
+
+                    if (finalBitmap != null) {
+                        updateViews.setImageViewBitmap(R.id.widget_canvas_image, finalBitmap);
+                        updateViews.setTextViewText(R.id.widget_status_text, "Synced");
+                    } else {
+                        updateViews.setTextViewText(R.id.widget_status_text, "Tap to draw");
+                    }
+                    appWidgetManager.updateAppWidget(appWidgetId, updateViews);
+                } catch (Exception err) {
+                    Log.e(TAG, "Error updating remote views with bitmap", err);
                 }
-                appWidgetManager.updateAppWidget(appWidgetId, views);
             });
         });
     }
