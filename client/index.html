@@ -23,11 +23,41 @@
     <!-- YouTube IFrame API -->
     <script src="https://www.youtube.com/iframe_api"></script>
 
-    <!-- Register PWA Service Worker -->
+    <!-- Resilient Bundle Loader & Chunk Load Error Recovery -->
     <script>
+      // Automatically recover if a user has a stale service worker / cached bundle hash
+      window.addEventListener('error', function(e) {
+        if (e && e.message && (
+          e.message.includes('dynamically imported module') ||
+          e.message.includes('Loading chunk') ||
+          e.message.includes('Failed to fetch')
+        )) {
+          if (!sessionStorage.getItem('chunk_retry_reload')) {
+            sessionStorage.setItem('chunk_retry_reload', 'true');
+            if ('caches' in window) {
+              caches.keys().then(function(names) {
+                for (let name of names) caches.delete(name);
+              });
+            }
+            if ('serviceWorker' in navigator) {
+              navigator.serviceWorker.getRegistrations().then(function(regs) {
+                for (let r of regs) r.unregister();
+              });
+            }
+            window.location.reload();
+          }
+        }
+      });
+
+      // Register / Update PWA Service Worker
       if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then((registrations) => {
+          for (let registration of registrations) {
+            registration.update();
+          }
+        });
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js').catch((err) => {
+          navigator.serviceWorker.register('/sw.js?v=2').catch((err) => {
             console.log('SW registration skipped:', err);
           });
         });

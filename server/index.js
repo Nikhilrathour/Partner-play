@@ -652,6 +652,14 @@ io.on('connection', (socket) => {
   });
 });
 
+// Prevent serving index.html for missing assets or api endpoints
+app.use('/assets', (req, res) => {
+  res.status(404).type('text/plain').send('Asset not found');
+});
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: 'Endpoint not found' });
+});
+
 app.get('*', (req, res) => {
   res.sendFile(path.join(distPath, 'index.html'));
 });
