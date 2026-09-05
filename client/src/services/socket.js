@@ -1,6 +1,6 @@
 import { io } from 'socket.io-client';
 
-export const DEFAULT_SERVER_URL = 'https://partner-play-production.up.railway.app';
+export const DEFAULT_SERVER_URL = 'https://love.getfuckingclients.com';
 
 export function getCustomServerUrl() {
   if (typeof window === 'undefined') return '';
