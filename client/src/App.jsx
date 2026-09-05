@@ -92,6 +92,22 @@ export default function App() {
     };
   }, []);
 
+  // 4. Auto-resync when mobile socket reconnects
+  useEffect(() => {
+    const handleReconnect = () => {
+      if (room?.code && user?.name) {
+        socket.emit('room:join', {
+          code: room.code,
+          userName: user.name,
+          userColor: user.color,
+        });
+      }
+    };
+
+    socket.on('connect', handleReconnect);
+    return () => socket.off('connect', handleReconnect);
+  }, [room?.code, user?.name, user?.color]);
+
   const handleRoomJoined = (roomData) => {
     setRoom(roomData);
     setUser(roomData.user);

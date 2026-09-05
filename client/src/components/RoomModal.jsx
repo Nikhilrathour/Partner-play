@@ -18,6 +18,22 @@ export default function RoomModal({ isOpen, onClose, onJoined, currentRoomCode }
   const [showServerConfig, setShowServerConfig] = useState(false);
   const [serverInput, setServerInput] = useState(getServerUrl());
 
+  const [isServerOnline, setIsServerOnline] = useState(socket.connected);
+
+  // Monitor socket connection state
+  useEffect(() => {
+    const onConnect = () => setIsServerOnline(true);
+    const onDisconnect = () => setIsServerOnline(false);
+
+    socket.on('connect', onConnect);
+    socket.on('disconnect', onDisconnect);
+
+    return () => {
+      socket.off('connect', onConnect);
+      socket.off('disconnect', onDisconnect);
+    };
+  }, []);
+
   // Check URL query parameters for auto room code fill
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -36,29 +52,34 @@ export default function RoomModal({ isOpen, onClose, onJoined, currentRoomCode }
     setIsLoading(true);
     setErrorMessage('');
 
-    const res = await socketCreateRoom(
-      userName.trim() || 'Partner 1',
-      userColor,
-      customCreateCode.trim()
-    );
+    try {
+      const res = await socketCreateRoom(
+        userName.trim() || 'Partner 1',
+        userColor,
+        customCreateCode.trim()
+      );
 
-    setIsLoading(false);
-    if (res && res.success) {
-      const url = new URL(window.location.href);
-      url.searchParams.set('room', res.room.code);
-      window.history.replaceState({}, '', url);
+      if (res && res.success) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('room', res.room.code);
+        window.history.replaceState({}, '', url);
 
-      if (typeof window !== 'undefined' && window.Capacitor?.Plugins?.WidgetBridge) {
-        window.Capacitor.Plugins.WidgetBridge.saveWidgetRoomCode({
-          roomCode: res.room.code,
-          serverUrl: getServerUrl()
-        }).catch(() => {});
+        if (typeof window !== 'undefined' && window.Capacitor?.Plugins?.WidgetBridge) {
+          window.Capacitor.Plugins.WidgetBridge.saveWidgetRoomCode({
+            roomCode: res.room.code,
+            serverUrl: getServerUrl()
+          }).catch(() => {});
+        }
+
+        onJoined(res.room);
+        onClose();
+      } else {
+        setErrorMessage(res?.error || 'Failed to connect. Please check internet connection.');
       }
-
-      onJoined(res.room);
-      onClose();
-    } else {
-      setErrorMessage(res?.error || 'Failed to create room. Try again.');
+    } catch (err) {
+      setErrorMessage(err.message || 'Connection error. Please retry.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -73,29 +94,34 @@ export default function RoomModal({ isOpen, onClose, onJoined, currentRoomCode }
     setIsLoading(true);
     setErrorMessage('');
 
-    const res = await socketJoinRoom(
-      roomCodeInput.trim(),
-      userName.trim() || 'Partner 2',
-      userColor
-    );
+    try {
+      const res = await socketJoinRoom(
+        roomCodeInput.trim(),
+        userName.trim() || 'Partner 2',
+        userColor
+      );
 
-    setIsLoading(false);
-    if (res && res.success) {
-      const url = new URL(window.location.href);
-      url.searchParams.set('room', res.room.code);
-      window.history.replaceState({}, '', url);
+      if (res && res.success) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('room', res.room.code);
+        window.history.replaceState({}, '', url);
 
-      if (typeof window !== 'undefined' && window.Capacitor?.Plugins?.WidgetBridge) {
-        window.Capacitor.Plugins.WidgetBridge.saveWidgetRoomCode({
-          roomCode: res.room.code,
-          serverUrl: getServerUrl()
-        }).catch(() => {});
+        if (typeof window !== 'undefined' && window.Capacitor?.Plugins?.WidgetBridge) {
+          window.Capacitor.Plugins.WidgetBridge.saveWidgetRoomCode({
+            roomCode: res.room.code,
+            serverUrl: getServerUrl()
+          }).catch(() => {});
+        }
+
+        onJoined(res.room);
+        onClose();
+      } else {
+        setErrorMessage(res?.error || 'Could not join room. Check code!');
       }
-
-      onJoined(res.room);
-      onClose();
-    } else {
-      setErrorMessage(res?.error || 'Could not join room. Check code!');
+    } catch (err) {
+      setErrorMessage(err.message || 'Connection error. Please retry.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -236,6 +262,22 @@ export default function RoomModal({ isOpen, onClose, onJoined, currentRoomCode }
               {errorMessage}
             </p>
           )}
+
+          {/* Live Server Connectivity Status Indicator */}
+          <div className="flex items-center justify-between px-1 py-0.5 text-[11px]">
+            <span className="text-zinc-500 font-medium">Studio Server:</span>
+            {isServerOnline ? (
+              <span className="text-emerald-600 font-semibold flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span>Online & Ready</span>
+              </span>
+            ) : (
+              <span className="text-amber-600 font-semibold flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
+                <span>Connecting to Server...</span>
+              </span>
+            )}
+          </div>
 
           {/* Submit Button */}
           <button

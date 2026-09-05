@@ -33,6 +33,11 @@ export function getServerUrl() {
     return import.meta.env.VITE_SOCKET_URL;
   }
   if (typeof window !== 'undefined') {
+    // If running in Capacitor Android/iOS APK, connect directly to production server
+    if (window.Capacitor?.isNativePlatform?.() || window.Capacitor?.getPlatform?.() === 'android') {
+      return DEFAULT_SERVER_URL;
+    }
+    // Local development web browser (Vite dev server)
     if (window.location.port === '5173') {
       return 'http://localhost:5000';
     }
@@ -43,29 +48,107 @@ export function getServerUrl() {
   return DEFAULT_SERVER_URL;
 }
 
+// Resilient Socket.io client: start with HTTP long-polling for instant mobile connectivity,
+// then smoothly upgrade to WebSocket
 export const socket = io(getServerUrl(), {
   autoConnect: true,
-  transports: ['websocket', 'polling'],
-  reconnectionAttempts: 20,
-  reconnectionDelay: 1500,
+  transports: ['polling', 'websocket'],
+  reconnectionAttempts: 50,
+  reconnectionDelay: 1000,
+  timeout: 10000,
 });
 
-// Helper promise wrapper for room creation
-export function socketCreateRoom(userName, userColor, requestedCode) {
-  return new Promise((resolve) => {
+// Helper for room creation with 4-second socket timeout + resilient HTTP REST fallback
+export async function socketCreateRoom(userName, userColor, requestedCode) {
+  if (!socket.connected) {
+    socket.connect();
+  }
+
+  // 1. Try Socket.io first
+  const socketPromise = new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error('SOCKET_TIMEOUT'));
+    }, 4000);
+
     socket.emit('room:create', { userName, userColor, requestedCode }, (response) => {
+      clearTimeout(timer);
       resolve(response);
     });
   });
+
+  try {
+    return await socketPromise;
+  } catch (err) {
+    // 2. Resilient HTTP REST Fallback (works on any cellular or restrictive mobile network)
+    try {
+      const res = await fetch(`${getServerUrl()}/api/room/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userName, userColor, requestedCode }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        // Notify socket to join room once connected
+        if (data.room?.code) {
+          socket.emit('room:join', { code: data.room.code, userName, userColor });
+        }
+        return data;
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        return { success: false, error: errData.error || 'Failed to create room.' };
+      }
+    } catch (fetchErr) {
+      return { 
+        success: false, 
+        error: 'Unable to reach studio server. Please check your internet connection and retry.' 
+      };
+    }
+  }
 }
 
-// Helper promise wrapper for room joining
-export function socketJoinRoom(code, userName, userColor) {
-  return new Promise((resolve) => {
+// Helper for room joining with 4-second socket timeout + resilient HTTP REST fallback
+export async function socketJoinRoom(code, userName, userColor) {
+  if (!socket.connected) {
+    socket.connect();
+  }
+
+  const socketPromise = new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error('SOCKET_TIMEOUT'));
+    }, 4000);
+
     socket.emit('room:join', { code, userName, userColor }, (response) => {
+      clearTimeout(timer);
       resolve(response);
     });
   });
+
+  try {
+    return await socketPromise;
+  } catch (err) {
+    try {
+      const res = await fetch(`${getServerUrl()}/api/room/join`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, userName, userColor }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.room?.code) {
+          socket.emit('room:join', { code: data.room.code, userName, userColor });
+        }
+        return data;
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        return { success: false, error: errData.error || 'Could not join room. Check code!' };
+      }
+    } catch (fetchErr) {
+      return { 
+        success: false, 
+        error: 'Unable to reach studio server. Please check your internet connection and retry.' 
+      };
+    }
+  }
 }
 
 // Latency measurement helper

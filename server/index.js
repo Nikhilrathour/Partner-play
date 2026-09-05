@@ -62,6 +62,118 @@ app.get('/api/room/:code', (req, res) => {
   });
 });
 
+// REST failsafe for mobile apps: create room via HTTP
+app.post('/api/room/create', (req, res) => {
+  const { userName, userColor, requestedCode } = req.body;
+  const code = (requestedCode && requestedCode.trim())
+    ? requestedCode.trim().toUpperCase()
+    : generateRoomCode();
+
+  if (rooms.has(code)) {
+    return res.status(400).json({ success: false, error: 'Room code already exists. Please join it or choose another.' });
+  }
+
+  const newUser = {
+    id: 'user_' + Math.random().toString(36).substring(2, 9),
+    name: userName || 'Partner 1',
+    color: userColor || '#ff5722',
+    isHost: true,
+    joinedAt: Date.now(),
+  };
+
+  const newRoom = {
+    code,
+    createdAt: Date.now(),
+    members: [newUser],
+    canvasState: [],
+    currentTrack: {
+      source: 'ambient',
+      id: 'ambient_1',
+      title: 'Midnight Lo-Fi Romance',
+      artist: 'Couple Beats',
+      url: 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3',
+      isPlaying: false,
+      currentTime: 0,
+      lastUpdated: Date.now(),
+    },
+    notes: [],
+  };
+
+  rooms.set(code, newRoom);
+  return res.json({
+    success: true,
+    room: {
+      code: newRoom.code,
+      user: newUser,
+      members: newRoom.members,
+      canvasState: newRoom.canvasState,
+      currentTrack: newRoom.currentTrack,
+      notes: newRoom.notes,
+    },
+  });
+});
+
+// REST failsafe for mobile apps: join room via HTTP
+app.post('/api/room/join', (req, res) => {
+  const { code, userName, userColor } = req.body;
+  const formattedCode = (code || '').trim().toUpperCase();
+  let room = rooms.get(formattedCode);
+
+  if (!room) {
+    room = {
+      code: formattedCode,
+      createdAt: Date.now(),
+      members: [],
+      canvasState: [],
+      currentTrack: {
+        source: 'ambient',
+        id: 'ambient_1',
+        title: 'Midnight Lo-Fi Romance',
+        artist: 'Couple Beats',
+        url: 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3',
+        isPlaying: false,
+        currentTime: 0,
+        lastUpdated: Date.now(),
+      },
+      notes: [],
+    };
+    rooms.set(formattedCode, room);
+  }
+
+  const trimmedName = (userName || '').trim();
+  const existingIndex = room.members.findIndex(m => trimmedName && m.name.toLowerCase() === trimmedName.toLowerCase());
+  let newUser;
+
+  if (existingIndex !== -1) {
+    newUser = {
+      ...room.members[existingIndex],
+      color: userColor || room.members[existingIndex].color,
+    };
+    room.members[existingIndex] = newUser;
+  } else {
+    newUser = {
+      id: 'user_' + Math.random().toString(36).substring(2, 9),
+      name: trimmedName || `Partner ${room.members.length + 1}`,
+      color: userColor || (room.members.length === 1 ? '#7c3aed' : '#0284c7'),
+      isHost: room.members.length === 0,
+      joinedAt: Date.now(),
+    };
+    room.members.push(newUser);
+  }
+
+  return res.json({
+    success: true,
+    room: {
+      code: room.code,
+      user: newUser,
+      members: room.members,
+      canvasState: room.canvasState,
+      currentTrack: room.currentTrack,
+      notes: room.notes,
+    },
+  });
+});
+
 // Widget Snapshot Receiver: Client pushes rendered canvas PNG
 app.post('/api/room/:code/snapshot', (req, res) => {
   const code = req.params.code.toUpperCase();
@@ -230,15 +342,30 @@ io.on('connection', (socket) => {
       return;
     }
 
-    const newUser = {
-      id: socket.id,
-      name: userName || `Partner ${room.members.length + 1}`,
-      color: userColor || (room.members.length === 1 ? '#a855f7' : '#38bdf8'),
-      isHost: room.members.length === 0,
-      joinedAt: Date.now(),
-    };
+    const trimmedName = (userName || '').trim();
+    const existingIndex = room.members.findIndex(
+      (m) => (trimmedName && m.name.toLowerCase() === trimmedName.toLowerCase()) || m.id === socket.id
+    );
+    let newUser;
 
-    room.members.push(newUser);
+    if (existingIndex !== -1) {
+      newUser = {
+        ...room.members[existingIndex],
+        id: socket.id,
+        color: userColor || room.members[existingIndex].color,
+      };
+      room.members[existingIndex] = newUser;
+    } else {
+      newUser = {
+        id: socket.id,
+        name: trimmedName || `Partner ${room.members.length + 1}`,
+        color: userColor || (room.members.length === 1 ? '#a855f7' : '#38bdf8'),
+        isHost: room.members.length === 0,
+        joinedAt: Date.now(),
+      };
+      room.members.push(newUser);
+    }
+
     socket.join(formattedCode);
     currentRoomCode = formattedCode;
     currentUser = newUser;
