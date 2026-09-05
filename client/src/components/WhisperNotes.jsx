@@ -38,6 +38,13 @@ export default function WhisperNotes({ room, user, isOpen, onClose, asTab = fals
   const [selectedColor, setSelectedColor] = useState(NOTE_COLORS[0].hex);
   const [toastMessage, setToastMessage] = useState(null);
 
+  // Sync notes whenever room prop updates (e.g. initial auto-join or reconnect)
+  useEffect(() => {
+    if (room?.notes) {
+      setNotes(room.notes);
+    }
+  }, [room?.notes]);
+
   // Sync incoming notes from server
   useEffect(() => {
     const handleNoteAdded = (newNote) => {

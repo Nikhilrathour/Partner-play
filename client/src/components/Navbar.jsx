@@ -32,11 +32,26 @@ export default function Navbar({
   canInstallPwa
 }) {
   const [copied, setCopied] = useState(false);
-  const [partnerConnected, setPartnerConnected] = useState(room?.members?.length > 1);
+  const [isSocketConnected, setIsSocketConnected] = useState(socket.connected);
+  const [partnerConnected, setPartnerConnected] = useState((room?.members?.length || 0) > 1);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isWidgetModalOpen, setIsWidgetModalOpen] = useState(false);
   const [showUnpairModal, setShowUnpairModal] = useState(false);
   const menuRef = useRef(null);
+
+  // Monitor socket connection state
+  useEffect(() => {
+    const handleConnect = () => setIsSocketConnected(true);
+    const handleDisconnect = () => setIsSocketConnected(false);
+
+    socket.on('connect', handleConnect);
+    socket.on('disconnect', handleDisconnect);
+
+    return () => {
+      socket.off('connect', handleConnect);
+      socket.off('disconnect', handleDisconnect);
+    };
+  }, []);
 
   // Sync partner presence
   useEffect(() => {
@@ -44,7 +59,7 @@ export default function Navbar({
       setPartnerConnected(room.members.length > 1);
     }
 
-    const onPartnerJoined = () => {
+    const onPartnerJoined = (data) => {
       setPartnerConnected(true);
       playChime();
     };
@@ -186,20 +201,33 @@ export default function Navbar({
             </button>
           )}
 
-          {/* Partner Status Dot */}
-          <div 
-            className={`px-2 sm:px-2.5 py-1 rounded-full text-[10px] sm:text-[11px] font-medium flex items-center gap-1.5 ${
-              partnerConnected
-                ? 'badge-mint'
-                : 'bg-[#fffbeb] text-[#b45309] border border-[#fde68a]'
-            }`}
-            title={partnerConnected ? 'Partner is in the studio!' : 'Waiting for partner to open the app...'}
-          >
-            <span className={`w-1.5 h-1.5 rounded-full ${partnerConnected ? 'bg-emerald-500 animate-ping' : 'bg-amber-500'}`} />
-            <span className="hidden min-[380px]:inline">
-              {partnerConnected ? 'Ready' : 'Waiting'}
-            </span>
-          </div>
+          {/* Connection & Partner Presence Badge */}
+          {!isSocketConnected ? (
+            <div 
+              className="px-2 sm:px-2.5 py-1 rounded-full text-[10px] sm:text-[11px] font-medium flex items-center gap-1.5 bg-[#fef2f2] text-[#b91c1c] border border-[#fecaca]"
+              title="Connecting to studio server..."
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
+              <span>Connecting...</span>
+            </div>
+          ) : partnerConnected ? (
+            <div 
+              className="badge-mint px-2 sm:px-2.5 py-1 rounded-full text-[10px] sm:text-[11px] font-medium flex items-center gap-1.5 shadow-xs"
+              title="Your partner is connected in the studio!"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+              <span>Connected</span>
+            </div>
+          ) : (
+            <button
+              onClick={copyInviteLink}
+              className="px-2 sm:px-2.5 py-1 rounded-full text-[10px] sm:text-[11px] font-medium flex items-center gap-1.5 bg-[#fffbeb] hover:bg-[#fef3c7] text-[#b45309] border border-[#fde68a] transition-all cursor-pointer shadow-xs active:scale-95"
+              title="Click to copy invite link for your partner"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+              <span>{copied ? 'Link Copied! 💌' : 'Invite Partner 💌'}</span>
+            </button>
+          )}
 
           {/* User Profile Avatar with Dropdown Toggle */}
           {user && (

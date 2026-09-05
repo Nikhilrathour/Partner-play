@@ -7,6 +7,12 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use((err, req, res, next) => {
+  if (err) {
+    return res.status(400).json({ error: 'Bad Request', details: err.message });
+  }
+  next();
+});
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -443,6 +449,23 @@ io.on('connection', (socket) => {
     io.in(currentRoomCode).emit('canvas:history_sync', room.canvasState);
   });
 
+  // Canvas: Request full history sync (on mount or mobile reconnect)
+  socket.on('canvas:request_sync', (callback) => {
+    if (!currentRoomCode) return;
+    const room = rooms.get(currentRoomCode);
+    if (!room) return;
+
+    if (typeof callback === 'function') {
+      callback({
+        success: true,
+        canvasState: room.canvasState || [],
+        timestamp: Date.now(),
+      });
+    } else {
+      socket.emit('canvas:history_sync', room.canvasState || []);
+    }
+  });
+
   // Live cursor position (normalized 0.0 - 1.0)
   socket.on('cursor:move', (position) => {
     if (!currentRoomCode) return;
@@ -574,13 +597,13 @@ io.on('connection', (socket) => {
         room.members = room.members.filter((m) => m.id !== socket.id);
 
         if (room.members.length === 0) {
-          // Clean up empty room after 20 minutes to prevent immediate loss on refresh
+          // Keep couple studio persistent for 7 days even if both partners close the app
           setTimeout(() => {
             const r = rooms.get(currentRoomCode);
             if (r && r.members.length === 0) {
               rooms.delete(currentRoomCode);
             }
-          }, 20 * 60 * 1000);
+          }, 7 * 24 * 60 * 60 * 1000);
         } else {
           socket.to(currentRoomCode).emit('room:partner_left', {
             userId: socket.id,

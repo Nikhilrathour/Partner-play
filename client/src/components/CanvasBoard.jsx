@@ -228,6 +228,26 @@ export default function CanvasBoard({ room, user, isActive = true }) {
     }
   }, [room, redrawCanvas, scheduleWidgetSnapshot]);
 
+  // Request fresh canvas state on mount and whenever socket connects/reconnects
+  useEffect(() => {
+    const handleRequestSync = () => {
+      if (room?.code) {
+        socket.emit('canvas:request_sync', (res) => {
+          if (res && res.success && res.canvasState) {
+            strokeHistoryRef.current = res.canvasState;
+            setHasStrokes(res.canvasState.length > 0);
+            redrawCanvas();
+            scheduleWidgetSnapshot();
+          }
+        });
+      }
+    };
+
+    handleRequestSync();
+    socket.on('connect', handleRequestSync);
+    return () => socket.off('connect', handleRequestSync);
+  }, [room?.code, redrawCanvas, scheduleWidgetSnapshot]);
+
   // Socket listeners for partner canvas events
   useEffect(() => {
     const onIncomingStroke = (strokeData) => {

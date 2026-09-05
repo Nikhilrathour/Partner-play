@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Navbar from './components/Navbar';
 import CanvasBoard from './components/CanvasBoard';
 import AudioPlayer from './components/AudioPlayer';
 import RoomModal from './components/RoomModal';
 import ReactionsOverlay from './components/ReactionsOverlay';
 import WhisperNotes from './components/WhisperNotes';
-import { socket, socketJoinRoom } from './services/socket';
+import { socket, socketJoinRoom, getServerUrl } from './services/socket';
 import { Download, X, Smartphone, ArrowRight } from 'lucide-react';
 
 const STORAGE_ROOM_KEY = 'duo_partner_room_code';
@@ -19,6 +19,28 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('canvas'); // 'canvas' | 'music' | 'notes'
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
   const [currentPlayingTrack, setCurrentPlayingTrack] = useState(null);
+
+  // Stable references to prevent stale closures in socket and lifecycle handlers
+  const roomRef = useRef(room);
+  const userRef = useRef(user);
+
+  useEffect(() => {
+    roomRef.current = room;
+  }, [room]);
+
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
+
+  // Sync room code with Android Home Screen Widget
+  const syncWidgetRoom = useCallback((roomCode) => {
+    if (typeof window !== 'undefined' && window.Capacitor?.Plugins?.WidgetBridge && roomCode) {
+      window.Capacitor.Plugins.WidgetBridge.saveWidgetRoomCode({
+        roomCode: roomCode,
+        serverUrl: getServerUrl(),
+      }).catch(() => {});
+    }
+  }, []);
 
   // PWA Install Prompt State
   const [deferredInstallPrompt, setDeferredInstallPrompt] = useState(null);
@@ -46,6 +68,7 @@ export default function App() {
           localStorage.setItem(STORAGE_ROOM_KEY, res.room.code);
           localStorage.setItem(STORAGE_NAME_KEY, res.room.user.name);
           localStorage.setItem(STORAGE_COLOR_KEY, res.room.user.color);
+          syncWidgetRoom(res.room.code);
 
           const url = new URL(window.location.href);
           url.searchParams.set('room', res.room.code);
@@ -59,7 +82,7 @@ export default function App() {
     } else {
       setIsRoomModalOpen(true);
     }
-  }, []);
+  }, [syncWidgetRoom]);
 
   // 2. Listen for browser PWA install capability
   useEffect(() => {
@@ -92,21 +115,75 @@ export default function App() {
     };
   }, []);
 
-  // 4. Auto-resync when mobile socket reconnects
+  // 4. Resilient Mobile Reconnection & Re-Sync (Phone Sleep / Wake / Background)
   useEffect(() => {
-    const handleReconnect = () => {
-      if (room?.code && user?.name) {
+    const reJoinCurrentRoom = () => {
+      const currentRoom = roomRef.current;
+      const currentUser = userRef.current;
+      if (currentRoom?.code && currentUser?.name) {
         socket.emit('room:join', {
-          code: room.code,
-          userName: user.name,
-          userColor: user.color,
+          code: currentRoom.code,
+          userName: currentUser.name,
+          userColor: currentUser.color || '#ff5722',
+        }, (res) => {
+          if (res && res.success && res.room) {
+            setRoom(res.room);
+            setUser(res.room.user);
+          }
         });
+        // Also ensure canvas has freshest strokes
+        socket.emit('canvas:request_sync');
       }
     };
 
-    socket.on('connect', handleReconnect);
-    return () => socket.off('connect', handleReconnect);
-  }, [room?.code, user?.name, user?.color]);
+    const handleConnect = () => {
+      reJoinCurrentRoom();
+    };
+
+    // Foreground wake handler: triggered when phone unlocks or app is reopened
+    const handleWakeOrFocus = () => {
+      if (!socket.connected) {
+        socket.connect();
+      } else {
+        reJoinCurrentRoom();
+      }
+    };
+
+    socket.on('connect', handleConnect);
+
+    // Standard web / mobile browser visibility events
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        handleWakeOrFocus();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleWakeOrFocus);
+    document.addEventListener('resume', handleWakeOrFocus);
+
+    // Capacitor Native App Lifecycle (Android APK)
+    let capacitorListener = null;
+    if (typeof window !== 'undefined' && window.Capacitor?.Plugins?.App) {
+      window.Capacitor.Plugins.App.addListener('appStateChange', ({ isActive }) => {
+        if (isActive) {
+          handleWakeOrFocus();
+        }
+      }).then((sub) => {
+        capacitorListener = sub;
+      }).catch(() => {});
+    }
+
+    return () => {
+      socket.off('connect', handleConnect);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleWakeOrFocus);
+      document.removeEventListener('resume', handleWakeOrFocus);
+      if (capacitorListener && capacitorListener.remove) {
+        capacitorListener.remove();
+      }
+    };
+  }, []);
 
   const handleRoomJoined = (roomData) => {
     setRoom(roomData);
@@ -116,6 +193,7 @@ export default function App() {
     localStorage.setItem(STORAGE_ROOM_KEY, roomData.code);
     localStorage.setItem(STORAGE_NAME_KEY, roomData.user.name);
     localStorage.setItem(STORAGE_COLOR_KEY, roomData.user.color);
+    syncWidgetRoom(roomData.code);
   };
 
   const handleUnpair = () => {

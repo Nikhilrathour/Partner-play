@@ -33,18 +33,12 @@ export function getServerUrl() {
     return import.meta.env.VITE_SOCKET_URL;
   }
   if (typeof window !== 'undefined') {
-    // If running in Capacitor Android/iOS APK, connect directly to production server
-    if (window.Capacitor?.isNativePlatform?.() || window.Capacitor?.getPlatform?.() === 'android') {
-      return DEFAULT_SERVER_URL;
-    }
-    // Local development web browser (Vite dev server)
-    if (window.location.port === '5173') {
-      return 'http://localhost:5000';
-    }
-    if (window.location.origin && !window.location.origin.includes('localhost')) {
+    // If opened on production domain, use the current origin
+    if (window.location.hostname === 'love.getfuckingclients.com') {
       return window.location.origin;
     }
   }
+  // All clients (Android APK, mobile browser, local Vite preview, etc.) connect to the live studio server
   return DEFAULT_SERVER_URL;
 }
 
@@ -53,8 +47,9 @@ export function getServerUrl() {
 export const socket = io(getServerUrl(), {
   autoConnect: true,
   transports: ['polling', 'websocket'],
-  reconnectionAttempts: 50,
+  reconnectionAttempts: Infinity,
   reconnectionDelay: 1000,
+  reconnectionDelayMax: 5000,
   timeout: 10000,
 });
 

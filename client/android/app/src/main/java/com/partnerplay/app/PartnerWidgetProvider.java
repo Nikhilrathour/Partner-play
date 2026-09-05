@@ -90,15 +90,32 @@ public class PartnerWidgetProvider extends AppWidgetProvider {
                 
                 URL url = new URL(endpoint);
                 HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-                connection.setConnectTimeout(6000);
-                connection.setReadTimeout(6000);
+                connection.setConnectTimeout(8000);
+                connection.setReadTimeout(8000);
+                connection.setInstanceFollowRedirects(true);
                 connection.setDoInput(true);
                 connection.connect();
 
-                if (connection.getResponseCode() == 200) {
+                int status = connection.getResponseCode();
+                if (status == HttpURLConnection.HTTP_MOVED_TEMP || status == HttpURLConnection.HTTP_MOVED_PERM || status == 307 || status == 308) {
+                    String redirectUrl = connection.getHeaderField("Location");
+                    if (redirectUrl != null) {
+                        connection.disconnect();
+                        url = new URL(redirectUrl);
+                        connection = (HttpURLConnection) url.openConnection();
+                        connection.setConnectTimeout(8000);
+                        connection.setReadTimeout(8000);
+                        connection.connect();
+                        status = connection.getResponseCode();
+                    }
+                }
+
+                if (status == HttpURLConnection.HTTP_OK) {
                     InputStream input = connection.getInputStream();
                     bitmap = BitmapFactory.decodeStream(input);
+                    input.close();
                 }
+                connection.disconnect();
             } catch (Exception e) {
                 Log.e(TAG, "Error fetching widget bitmap", e);
             }
