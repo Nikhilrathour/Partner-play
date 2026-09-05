@@ -36,8 +36,9 @@ public class WidgetBridgePlugin extends Plugin {
         }
         editor.apply();
 
-        // Trigger immediate widget refresh
+        // Trigger immediate widget refresh for both Canvas and Music widgets
         PartnerWidgetProvider.triggerRefreshAll(context);
+        MusicWidgetProvider.triggerRefreshAll(context);
 
         JSObject ret = new JSObject();
         ret.put("success", true);
@@ -50,6 +51,7 @@ public class WidgetBridgePlugin extends Plugin {
         Context context = getContext();
         String roomCode = call.getString("roomCode");
         String serverUrl = call.getString("serverUrl");
+        String widgetType = call.getString("widgetType", "canvas");
 
         if (roomCode != null && !roomCode.trim().isEmpty()) {
             SharedPreferences prefs = context.getSharedPreferences(PartnerWidgetProvider.PREFS_NAME, Context.MODE_PRIVATE);
@@ -63,11 +65,19 @@ public class WidgetBridgePlugin extends Plugin {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             AppWidgetManager appWidgetManager = context.getSystemService(AppWidgetManager.class);
-            ComponentName myProvider = new ComponentName(context, PartnerWidgetProvider.class);
+            boolean isMusic = "music".equalsIgnoreCase(widgetType);
+            ComponentName myProvider = isMusic 
+                    ? new ComponentName(context, MusicWidgetProvider.class)
+                    : new ComponentName(context, PartnerWidgetProvider.class);
 
             if (appWidgetManager != null && appWidgetManager.isRequestPinAppWidgetSupported()) {
-                Intent pinnedSuccessIntent = new Intent(context, PartnerWidgetProvider.class);
-                pinnedSuccessIntent.setAction(PartnerWidgetProvider.ACTION_MANUAL_REFRESH);
+                Intent pinnedSuccessIntent = isMusic
+                        ? new Intent(context, MusicWidgetProvider.class)
+                        : new Intent(context, PartnerWidgetProvider.class);
+
+                pinnedSuccessIntent.setAction(isMusic 
+                        ? MusicWidgetProvider.ACTION_REFRESH_MUSIC_WIDGET 
+                        : PartnerWidgetProvider.ACTION_MANUAL_REFRESH);
 
                 PendingIntent successCallback = PendingIntent.getBroadcast(
                         context,
@@ -81,6 +91,7 @@ public class WidgetBridgePlugin extends Plugin {
                 JSObject ret = new JSObject();
                 ret.put("supported", true);
                 ret.put("requested", success);
+                ret.put("widgetType", widgetType);
                 call.resolve(ret);
                 return;
             }
@@ -96,6 +107,7 @@ public class WidgetBridgePlugin extends Plugin {
     public void refreshWidget(PluginCall call) {
         Context context = getContext();
         PartnerWidgetProvider.triggerRefreshAll(context);
+        MusicWidgetProvider.triggerRefreshAll(context);
 
         JSObject ret = new JSObject();
         ret.put("success", true);

@@ -270,6 +270,70 @@ app.get('/api/room/:code/widget.json', (req, res) => {
   });
 });
 
+// Music Widget Metadata endpoint: returns live music state
+app.get('/api/room/:code/music', (req, res) => {
+  const code = req.params.code.toUpperCase();
+  const room = rooms.get(code);
+  if (!room) {
+    return res.status(404).json({ error: 'Room not found' });
+  }
+
+  const now = Date.now();
+  let computedTime = room.currentTrack.currentTime;
+  if (room.currentTrack.isPlaying) {
+    computedTime += (now - room.currentTrack.lastUpdated) / 1000;
+  }
+
+  return res.json({
+    success: true,
+    code,
+    currentTrack: {
+      ...room.currentTrack,
+      currentTime: computedTime,
+    },
+    isPlaying: room.currentTrack.isPlaying,
+    memberCount: room.members.length,
+    updatedAt: room.currentTrack.lastUpdated,
+  });
+});
+
+// Music Widget Toggle Playback endpoint: allows home screen widget to start/pause music
+app.post('/api/room/:code/music/toggle', (req, res) => {
+  const code = req.params.code.toUpperCase();
+  const room = rooms.get(code);
+  if (!room) {
+    return res.status(404).json({ error: 'Room not found' });
+  }
+
+  const now = Date.now();
+  const nextIsPlaying = !room.currentTrack.isPlaying;
+
+  if (nextIsPlaying) {
+    room.currentTrack.isPlaying = true;
+    room.currentTrack.lastUpdated = now;
+  } else {
+    room.currentTrack.currentTime += (now - room.currentTrack.lastUpdated) / 1000;
+    room.currentTrack.isPlaying = false;
+    room.currentTrack.lastUpdated = now;
+  }
+
+  // Broadcast sync to all connected devices in the room immediately
+  io.in(code).emit('audio:sync', {
+    action: nextIsPlaying ? 'play' : 'pause',
+    track: room.currentTrack,
+    currentTime: room.currentTrack.currentTime,
+    sentAt: now,
+    initiatedBy: 'Widget',
+  });
+
+  return res.json({
+    success: true,
+    code,
+    isPlaying: room.currentTrack.isPlaying,
+    currentTrack: room.currentTrack,
+  });
+});
+
 // Serve client dist static files
 const path = require('path');
 const distPath = path.join(__dirname, '../client/dist');

@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/music_widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_rounded_bg"
+    android:padding="12dp">
+
+    <!-- Top Header Row: Room Pill & Sync Status -->
+    <LinearLayout
+        android:id="@+id/music_widget_header"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/music_widget_room_code"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/widget_pill_bg"
+            android:paddingStart="8dp"
+            android:paddingTop="3dp"
+            android:paddingEnd="8dp"
+            android:paddingBottom="3dp"
+            android:text="🎵 Studio DUO33"
+            android:textColor="#FF5722"
+            android:textStyle="bold"
+            android:textSize="11sp" />
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <TextView
+            android:id="@+id/music_widget_sync_badge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="💚 In Sync"
+            android:textColor="#059669"
+            android:textStyle="bold"
+            android:textSize="10sp" />
+    </LinearLayout>
+
+    <!-- Center Track Details -->
+    <LinearLayout
+        android:id="@+id/music_widget_track_info"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/music_widget_header"
+        android:layout_marginTop="8dp"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/music_widget_track_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Midnight Lo-Fi Romance"
+            android:textColor="#18181B"
+            android:textStyle="bold"
+            android:textSize="13sp"
+            android:maxLines="1"
+            android:ellipsize="end" />
+
+        <TextView
+            android:id="@+id/music_widget_track_artist"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:text="Couple Beats • Tap to listen"
+            android:textColor="#71717A"
+            android:textSize="11sp"
+            android:maxLines="1"
+            android:ellipsize="end" />
+    </LinearLayout>
+
+    <!-- Bottom Controls Row -->
+    <LinearLayout
+        android:id="@+id/music_widget_controls"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <!-- 1-Tap Play / Pause Button -->
+        <TextView
+            android:id="@+id/music_widget_toggle_btn"
+            android:layout_width="0dp"
+            android:layout_height="32dp"
+            android:layout_weight="1"
+            android:background="@drawable/widget_pill_bg"
+            android:gravity="center"
+            android:text="▶️ Play Together"
+            android:textColor="#FF5722"
+            android:textStyle="bold"
+            android:textSize="11sp" />
+
+        <!-- Spacer -->
+        <View
+            android:layout_width="8dp"
+            android:layout_height="1dp" />
+
+        <!-- Open Drawing Studio Button -->
+        <TextView
+            android:id="@+id/music_widget_studio_btn"
+            android:layout_width="wrap_content"
+            android:layout_height="32dp"
+            android:background="@drawable/widget_pill_bg"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:gravity="center"
+            android:text="🎨 Studio"
+            android:textColor="#71717A"
+            android:textStyle="bold"
+            android:textSize="11sp" />
+    </LinearLayout>
+
+</RelativeLayout>

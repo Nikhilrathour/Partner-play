@@ -24,6 +24,8 @@ import {
   AlertCircle
 } from 'lucide-react';
 
+const SILENT_AUDIO = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+
 export const PRESET_TRACKS = [
   {
     id: 'ambient_1',
@@ -167,6 +169,45 @@ export default function AudioPlayer({
     }
   }, [isPlaying, currentTrack, onPlayStateChange]);
 
+  // MediaSession API Integration for Android Lock Screen & Notification Controls
+  useEffect(() => {
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.metadata = new window.MediaMetadata({
+        title: currentTrack.title || 'Nikhana Couple Beats',
+        artist: currentTrack.artist || 'Shared Studio',
+        album: 'Nikhana Play',
+        artwork: [
+          { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+          { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+        ],
+      });
+
+      navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+
+      try {
+        navigator.mediaSession.setActionHandler('play', () => {
+          if (!isPlaying) togglePlay();
+        });
+        navigator.mediaSession.setActionHandler('pause', () => {
+          if (isPlaying) togglePlay();
+        });
+        navigator.mediaSession.setActionHandler('nexttrack', () => {
+          const currentIndex = PRESET_TRACKS.findIndex((t) => t.id === currentTrack.id);
+          const nextTrack = PRESET_TRACKS[(currentIndex + 1) % PRESET_TRACKS.length];
+          if (nextTrack) handleSelectTrack(nextTrack);
+        });
+        navigator.mediaSession.setActionHandler('previoustrack', () => {
+          const currentIndex = PRESET_TRACKS.findIndex((t) => t.id === currentTrack.id);
+          const prevIndex = (currentIndex - 1 + PRESET_TRACKS.length) % PRESET_TRACKS.length;
+          const prevTrack = PRESET_TRACKS[prevIndex];
+          if (prevTrack) handleSelectTrack(prevTrack);
+        });
+      } catch (err) {
+        console.log('MediaSession handlers not supported:', err);
+      }
+    }
+  }, [currentTrack, isPlaying]);
+
   // YouTube IFrame API Initialization (Target is ALWAYS present in DOM)
   useEffect(() => {
     let ytPlayer = null;
@@ -184,6 +225,9 @@ export default function AudioPlayer({
             fs: 1,
             rel: 0,
             modestbranding: 1,
+            playsinline: 1,
+            enablejsapi: 1,
+            origin: window.location.origin,
           },
           events: {
             onReady: (event) => {
@@ -191,10 +235,23 @@ export default function AudioPlayer({
               event.target.setVolume(volume * 100);
             },
             onStateChange: (event) => {
-              if (event.data === 1 && !isPlaying && isSelfTriggeredRef.current) {
-                setIsPlaying(true);
-              } else if (event.data === 2 && isPlaying && isSelfTriggeredRef.current) {
-                setIsPlaying(false);
+              if (event.data === 1) {
+                // Playing
+                if (!isPlaying && isSelfTriggeredRef.current) {
+                  setIsPlaying(true);
+                }
+              } else if (event.data === 2) {
+                // Paused
+                if (isPlaying && !isSelfTriggeredRef.current && document.hidden) {
+                  // If YouTube pauses involuntarily when phone screen locks, auto-resume background playback
+                  setTimeout(() => {
+                    if (ytPlayerRef.current && isPlaying && ytPlayerRef.current.playVideo) {
+                      ytPlayerRef.current.playVideo();
+                    }
+                  }, 250);
+                } else if (isPlaying && isSelfTriggeredRef.current) {
+                  setIsPlaying(false);
+                }
               }
             },
           },
@@ -214,6 +271,31 @@ export default function AudioPlayer({
       }
     };
   }, []);
+
+  // Screen-off & Visibility change listener: keep audio pipeline and YouTube alive
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden && isPlaying) {
+        // Keep silent audio anchor active so Android audio hardware doesn't sleep
+        if (htmlAudioRef.current) {
+          htmlAudioRef.current.play().catch(() => {});
+        }
+        // Keep YouTube playing if active
+        if (currentTrack.source === 'youtube' && ytPlayerRef.current) {
+          setTimeout(() => {
+            if (ytPlayerRef.current && isPlaying && ytPlayerRef.current.playVideo) {
+              ytPlayerRef.current.playVideo();
+            }
+          }, 200);
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isPlaying, currentTrack]);
 
   // Sync listener from Socket.io
   useEffect(() => {
@@ -263,6 +345,11 @@ export default function AudioPlayer({
             ytPlayerRef.current.seekTo(targetTime, true);
           }
           ytPlayerRef.current.playVideo();
+          if (htmlAudioRef.current) {
+            htmlAudioRef.current.src = SILENT_AUDIO;
+            htmlAudioRef.current.loop = true;
+            htmlAudioRef.current.play().catch(() => {});
+          }
         } else if (htmlAudioRef.current) {
           const currentAudio = htmlAudioRef.current.currentTime;
           if (Math.abs(currentAudio - targetTime) >= DRIFT_THRESHOLD_SECONDS) {
@@ -278,6 +365,9 @@ export default function AudioPlayer({
           ytPlayerRef.current.pauseVideo();
           if (typeof targetTime === 'number') {
             ytPlayerRef.current.seekTo(targetTime, true);
+          }
+          if (htmlAudioRef.current) {
+            htmlAudioRef.current.pause();
           }
         } else if (htmlAudioRef.current) {
           htmlAudioRef.current.pause();
@@ -351,8 +441,16 @@ export default function AudioPlayer({
     } else if (currentTrack.source === 'youtube' && ytPlayerRef.current) {
       if (nextIsPlaying) {
         ytPlayerRef.current.playVideo();
+        if (htmlAudioRef.current) {
+          htmlAudioRef.current.src = SILENT_AUDIO;
+          htmlAudioRef.current.loop = true;
+          htmlAudioRef.current.play().catch(() => {});
+        }
       } else {
         ytPlayerRef.current.pauseVideo();
+        if (htmlAudioRef.current) {
+          htmlAudioRef.current.pause();
+        }
       }
       activeTime = ytPlayerRef.current.getCurrentTime ? ytPlayerRef.current.getCurrentTime() : currentTime;
     }
@@ -478,9 +576,12 @@ export default function AudioPlayer({
       {/* Background HTML5 audio element */}
       <audio
         ref={htmlAudioRef}
-        src={currentTrack.source === 'ambient' ? currentTrack.url : ''}
+        src={currentTrack.source === 'ambient' ? currentTrack.url : SILENT_AUDIO}
         preload="auto"
-        onEnded={() => setIsPlaying(false)}
+        loop={currentTrack.source === 'youtube'}
+        onEnded={() => {
+          if (currentTrack.source !== 'youtube') setIsPlaying(false);
+        }}
       />
 
       {/* Remote Jukebox Partner Activity Toast */}
@@ -540,8 +641,8 @@ export default function AudioPlayer({
         </div>
       )}
 
-      {/* 2. DEDICATED MUSIC LOUNGE TAB (Creator Studio Clean Aesthetic) */}
-      <div className={`w-full max-w-xl mx-auto flex-1 overflow-y-auto overflow-x-hidden px-3 sm:px-4 py-3.5 pb-28 space-y-3.5 ${activeTab === 'music' ? 'block' : 'hidden'}`}>
+      {/* 2. DEDICATED MUSIC LOUNGE TAB (Creator Studio Clean Aesthetic, never display:none so audio doesn't suspend) */}
+      <div className={`w-full max-w-xl mx-auto flex-1 overflow-y-auto overflow-x-hidden px-3 sm:px-4 py-3.5 pb-28 space-y-3.5 ${activeTab === 'music' ? 'block' : 'invisible fixed -left-[9999px] -top-[9999px] pointer-events-none'}`}>
         
         {/* Status Header */}
         <div className="flex items-center justify-between pb-3 border-b border-[#ede8e1] w-full">
@@ -590,11 +691,13 @@ export default function AudioPlayer({
 
           {/* Media Center: YouTube Iframe Mount (ALWAYS in DOM) & Vinyl Platter */}
           <div className="w-full flex justify-center items-center my-2">
-            {/* 1) YouTube video player container */}
+            {/* 1) YouTube video player container - never display:none so audio never stops */}
             <div 
-              className={`w-full aspect-video rounded-2xl overflow-hidden border border-[#ede8e1] shadow-sm bg-black ${
-                showVideoEmbed && currentTrack.source === 'youtube' ? 'block' : 'hidden'
-              }`}
+              className={
+                showVideoEmbed && currentTrack.source === 'youtube'
+                  ? 'w-full aspect-video rounded-2xl overflow-hidden border border-[#ede8e1] shadow-sm bg-black'
+                  : 'fixed -top-[9999px] -left-[9999px] w-[320px] h-[180px] opacity-0 pointer-events-none z-[-50]'
+              }
             >
               <div id="youtube-hidden-player" className="w-full h-full" />
             </div>
