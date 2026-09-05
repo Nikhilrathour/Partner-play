@@ -3,6 +3,13 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 
+process.on('uncaughtException', (err) => {
+  console.error('[Uncaught Exception]', err);
+});
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[Unhandled Rejection]', reason);
+});
+
 const app = express();
 app.use(cors({
   origin: '*',
@@ -279,7 +286,7 @@ io.on('connection', (socket) => {
   });
 
   // Create room
-  socket.on('room:create', ({ userName, userColor, requestedCode }, callback) => {
+  socket.on('room:create', ({ userName, userColor, requestedCode, userId }, callback) => {
     const code = (requestedCode && requestedCode.trim())
       ? requestedCode.trim().toUpperCase()
       : generateRoomCode();
@@ -292,7 +299,7 @@ io.on('connection', (socket) => {
     }
 
     const newUser = {
-      id: socket.id,
+      id: userId || socket.id,
       name: userName || 'Partner 1',
       color: userColor || '#ff4081',
       isHost: true,
@@ -338,7 +345,7 @@ io.on('connection', (socket) => {
   });
 
   // Join room
-  socket.on('room:join', ({ code, userName, userColor }, callback) => {
+  socket.on('room:join', ({ code, userName, userColor, userId }, callback) => {
     const formattedCode = (code || '').trim().toUpperCase();
     let room = rooms.get(formattedCode);
 
