@@ -1508,59 +1508,69 @@ export default function AudioPlayer({
           </div>
         </div>
 
-        {/* Default Playable Test Track: "blue" by yung kai */}
-        <div className="flex-shrink-0 w-full rounded-2xl sm:rounded-3xl studio-card p-4 sm:p-5 shadow-sm box-border">
-          <div className="flex items-center justify-between gap-2 mb-3">
+        {/* Preloaded Playlist */}
+        <div className="flex-shrink-0 w-full rounded-2xl sm:rounded-3xl studio-card p-4 sm:p-5 shadow-sm box-border flex flex-col max-h-[400px]">
+          <div className="flex items-center justify-between gap-2 mb-3 flex-shrink-0">
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600">
+              <div className="w-6 h-6 rounded-lg bg-pink-50 border border-pink-200 flex items-center justify-center text-pink-600">
                 <Heart className="w-3.5 h-3.5" />
               </div>
-              <h4 className="text-xs font-bold text-zinc-900">Default Test Track</h4>
+              <h4 className="text-xs font-bold text-zinc-900">Our Playlist</h4>
             </div>
-            <span className="text-[10px] text-blue-600 font-semibold px-2 py-0.5 rounded-full bg-blue-50 border border-blue-200">
-              Ready to Play
+            <span className="text-[10px] text-pink-600 font-semibold px-2 py-0.5 rounded-full bg-pink-50 border border-pink-200">
+              {PRESET_TRACKS.length} Tracks
             </span>
           </div>
 
-          <div
-            onClick={() => handleSelectTrack(DEFAULT_TRACK)}
-            className={`p-3 rounded-2xl border cursor-pointer transition-all flex items-center justify-between w-full max-w-full ${
-              currentTrack.id === DEFAULT_TRACK.id
-                ? 'bg-[#eff6ff] border-blue-300 shadow-xs'
-                : 'bg-white hover:bg-[#fbf9f6] border-[#ede8e1]'
-            }`}
-          >
-            <div className="flex items-center gap-3 min-w-0 mr-2 flex-1">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center border flex-shrink-0 bg-blue-50 text-blue-600 border-blue-200">
-                <Heart className="w-4 h-4 fill-current" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className={`text-xs font-bold truncate ${currentTrack.id === DEFAULT_TRACK.id ? 'text-blue-600' : 'text-zinc-900'}`}>
-                  blue
-                </p>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-[10px] text-zinc-500 truncate">
-                    yung kai
-                  </span>
-                  <span className="text-[9px] px-1.5 py-0.2 rounded-full font-medium bg-blue-50 text-blue-700 border border-blue-200">
-                    Official Audio • 3:33
-                  </span>
-                </div>
-              </div>
-            </div>
+          <div className="flex flex-col gap-2 overflow-y-auto pr-1 flex-1">
+            {PRESET_TRACKS.map((track) => {
+              const isCurrent = currentTrack.id === track.id;
+              // Extract colors from track.color or use fallback
+              const bgColorClass = track.color?.split(' ')[0] || 'bg-zinc-50';
+              const textColorClass = track.color?.split(' ')[1] || 'text-zinc-600';
+              const borderColorClass = track.color?.split(' ')[2] || 'border-zinc-200';
 
-            <div className="flex-shrink-0 ml-1">
-              {currentTrack.id === DEFAULT_TRACK.id && isPlaying ? (
-                <span className="flex items-center gap-0.5 text-blue-600">
-                  <span className="w-0.5 h-3 bg-blue-600 animate-pulse rounded-full" />
-                  <span className="w-0.5 h-2 bg-blue-600 animate-pulse delay-75 rounded-full" />
-                </span>
-              ) : (
-                <div className="w-7 h-7 rounded-xl bg-[#f4efe8] hover:bg-blue-600 hover:text-white text-zinc-600 flex items-center justify-center transition-colors">
-                  <Play className="w-3 h-3 fill-current ml-0.5" />
+              return (
+                <div
+                  key={track.id}
+                  onClick={() => handleSelectTrack(track)}
+                  className={`p-3 rounded-2xl border cursor-pointer transition-all flex items-center justify-between w-full max-w-full ${
+                    isCurrent
+                      ? 'bg-[#eff6ff] border-blue-300 shadow-xs'
+                      : 'bg-white hover:bg-[#fbf9f6] border-[#ede8e1]'
+                  }`}
+                >
+                  <div className="flex items-center gap-3 min-w-0 mr-2 flex-1">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center border flex-shrink-0 ${bgColorClass} ${textColorClass} ${borderColorClass}`}>
+                      {renderTrackIcon(track.icon, 'w-4 h-4 fill-current')}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className={`text-xs font-bold truncate ${isCurrent ? 'text-blue-600' : 'text-zinc-900'}`}>
+                        {track.title}
+                      </p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-[10px] text-zinc-500 truncate">
+                          {track.artist}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex-shrink-0 ml-1">
+                    {isCurrent && isPlaying ? (
+                      <span className="flex items-center gap-0.5 text-blue-600">
+                        <span className="w-0.5 h-3 bg-blue-600 animate-pulse rounded-full" />
+                        <span className="w-0.5 h-2 bg-blue-600 animate-pulse delay-75 rounded-full" />
+                      </span>
+                    ) : (
+                      <div className={`w-7 h-7 rounded-xl bg-[#f4efe8] hover:bg-blue-600 hover:text-white text-zinc-600 flex items-center justify-center transition-colors`}>
+                        <Play className="w-3 h-3 fill-current ml-0.5" />
+                      </div>
+                    )}
+                  </div>
                 </div>
-              )}
-            </div>
+              );
+            })}
           </div>
         </div>
 
