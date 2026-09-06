@@ -73,6 +73,13 @@
             </intent-filter>
         </service>
 
+        <!-- Music Background Playback Foreground Service -->
+        <service
+            android:name=".MusicService"
+            android:foregroundServiceType="mediaPlayback"
+            android:exported="false">
+        </service>
+
         <!-- FCM default notification channel and icon -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
@@ -91,4 +98,6 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
 </manifest>

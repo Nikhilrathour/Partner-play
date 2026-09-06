@@ -203,4 +203,42 @@ public class WidgetBridgePlugin extends Plugin {
         ret.put("granted", granted);
         call.resolve(ret);
     }
+
+    @PluginMethod
+    public void startMusicForeground(PluginCall call) {
+        String title = call.getString("title", "Our Playlist");
+        String artist = call.getString("artist", "Partner Play");
+        try {
+            Context context = getContext();
+            Intent intent = new Intent(context, MusicService.class);
+            intent.setAction(MusicService.ACTION_PLAY);
+            intent.putExtra("title", title);
+            intent.putExtra("artist", artist);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent);
+            } else {
+                context.startService(intent);
+            }
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("Failed to start music foreground service", e);
+        }
+    }
+
+    @PluginMethod
+    public void stopMusicForeground(PluginCall call) {
+        try {
+            Context context = getContext();
+            Intent intent = new Intent(context, MusicService.class);
+            intent.setAction(MusicService.ACTION_STOP);
+            context.startService(intent);
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("Failed to stop music foreground service", e);
+        }
+    }
 }

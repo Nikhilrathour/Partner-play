@@ -52,12 +52,20 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
+    public void onBackPressed() {
+        // Move app to background instead of destroying MainActivity,
+        // so music and real-time syncing keep playing seamlessly!
+        moveTaskToBack(true);
+    }
+
+    @Override
     public void onPause() {
         super.onPause();
-        // Keep webview timers running so background music and WebSockets don't get paused when screen turns off
+        // Keep webview timers and media pipeline running so background music and WebSockets don't get paused
         try {
             WebView webView = getBridge().getWebView();
             if (webView != null) {
+                webView.onResume(); // Prevents Android WebView from pausing HTML5 audio
                 webView.resumeTimers();
             }
         } catch (Exception e) {
@@ -66,7 +74,7 @@ public class MainActivity extends BridgeActivity {
         // Hold wake lock to keep CPU alive for audio
         try {
             if (wakeLock != null && !wakeLock.isHeld()) {
-                wakeLock.acquire(30 * 60 * 1000L); // 30 min max
+                wakeLock.acquire(60 * 60 * 1000L); // 60 min
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -76,10 +84,11 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onStop() {
         super.onStop();
-        // Ensure timers still run even after onStop (Android may call both)
+        // Ensure timers and media still run even after onStop (e.g. screen off or user switches apps)
         try {
             WebView webView = getBridge().getWebView();
             if (webView != null) {
+                webView.onResume();
                 webView.resumeTimers();
             }
         } catch (Exception e) {

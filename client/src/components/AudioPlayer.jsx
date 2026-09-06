@@ -377,6 +377,44 @@ export default function AudioPlayer({
     }
   }, [isPlaying, currentTrack, onPlayStateChange]);
 
+  // Synchronize HTML5 audio element reliably without React DOM attribute collisions
+  useEffect(() => {
+    const audio = htmlAudioRef.current;
+    if (!audio) return;
+
+    if (currentTrack.source === 'youtube') {
+      if (!audio.src || !audio.src.startsWith('data:audio/wav')) {
+        audio.src = SILENT_AUDIO;
+        audio.loop = true;
+        if (isPlaying) {
+          audio.play().catch(() => {});
+        }
+      }
+      return;
+    }
+
+    audio.loop = false;
+    const targetUrl = currentTrack.url;
+    if (!targetUrl) return;
+
+    const isSameSrc = audio.src && (audio.src === targetUrl || audio.src.endsWith(targetUrl));
+    if (!isSameSrc) {
+      audio.src = targetUrl;
+      audio.load();
+    }
+
+    if (isPlaying) {
+      const p = audio.play();
+      if (p !== undefined) {
+        p.catch((err) => {
+          console.warn('Playback prevented or aborted:', err);
+        });
+      }
+    } else {
+      audio.pause();
+    }
+  }, [currentTrack.url, currentTrack.source, isPlaying]);
+
   // MediaSession API Integration for Android Lock Screen & Notification Controls
   useEffect(() => {
     if ('mediaSession' in navigator) {
@@ -429,6 +467,20 @@ export default function AudioPlayer({
       }
     }
   }, [currentTrack, isPlaying]);
+
+  // Native Android Foreground Service integration for persistent background music
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.Capacitor?.Plugins?.WidgetBridge) {
+      if (isPlaying) {
+        window.Capacitor.Plugins.WidgetBridge.startMusicForeground({
+          title: currentTrack.title || 'Our Playlist',
+          artist: currentTrack.artist || 'Partner Play',
+        }).catch(() => {});
+      } else {
+        window.Capacitor.Plugins.WidgetBridge.stopMusicForeground().catch(() => {});
+      }
+    }
+  }, [isPlaying, currentTrack.title, currentTrack.artist]);
 
   // YouTube IFrame API Initialization (Target is ALWAYS present in DOM)
   useEffect(() => {
@@ -1152,12 +1204,10 @@ export default function AudioPlayer({
 
   return (
     <>
-      {/* Background HTML5 audio element */}
+      {/* Background HTML5 audio element (src managed via audio controller useEffect) */}
       <audio
         ref={htmlAudioRef}
-        src={currentTrack.source !== 'youtube' ? currentTrack.url : SILENT_AUDIO}
         preload="auto"
-        loop={currentTrack.source === 'youtube'}
         onEnded={() => {
           if (currentTrack.source !== 'youtube') setIsPlaying(false);
         }}
