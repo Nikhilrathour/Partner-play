@@ -211,6 +211,11 @@ public class WidgetBridgePlugin extends Plugin {
         String artist = call.getString("artist", "Partner Play");
         String trackId = call.getString("id", "");
         double currentTime = call.getDouble("currentTime", 0.0);
+        boolean loop = Boolean.TRUE.equals(call.getBoolean("loop", false));
+        String nextTrackUrl = call.getString("nextTrackUrl", null);
+        String nextTrackTitle = call.getString("nextTrackTitle", null);
+        String nextTrackArtist = call.getString("nextTrackArtist", null);
+        String nextTrackId = call.getString("nextTrackId", null);
 
         try {
             Context context = getContext();
@@ -221,6 +226,11 @@ public class WidgetBridgePlugin extends Plugin {
             intent.putExtra("artist", artist);
             intent.putExtra("trackId", trackId);
             intent.putExtra("currentTime", currentTime);
+            intent.putExtra("loop", loop);
+            if (nextTrackUrl != null) intent.putExtra("nextTrackUrl", nextTrackUrl);
+            if (nextTrackTitle != null) intent.putExtra("nextTrackTitle", nextTrackTitle);
+            if (nextTrackArtist != null) intent.putExtra("nextTrackArtist", nextTrackArtist);
+            if (nextTrackId != null) intent.putExtra("nextTrackId", nextTrackId);
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent);
@@ -296,10 +306,12 @@ public class WidgetBridgePlugin extends Plugin {
             ret.put("trackId", service.getCurrentTrackId());
             ret.put("title", service.getCurrentTitle());
             ret.put("artist", service.getCurrentArtist());
+            ret.put("hasEnded", service.hasEnded());
         } else {
             ret.put("isPlaying", false);
             ret.put("currentTime", 0);
             ret.put("duration", 0);
+            ret.put("hasEnded", false);
         }
         call.resolve(ret);
     }

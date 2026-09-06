@@ -1025,12 +1025,17 @@ io.on('connection', (socket) => {
       }
     }
 
+    if (data.repeatMode) {
+      room.repeatMode = data.repeatMode;
+    }
+
     // Broadcast sync event to partner with server timestamp
     socket.to(currentRoomCode).emit('audio:sync', {
       action,
       track: room.currentTrack,
       currentTime: room.currentTrack.currentTime,
       isPlaying: room.currentTrack.isPlaying,
+      repeatMode: data.repeatMode || room.repeatMode,
       sentAt: now,
       initiatedBy: currentUser?.name || data.initiatedBy || 'Your partner',
       triggeredBy: currentUser?.name || data.initiatedBy || 'Your partner',

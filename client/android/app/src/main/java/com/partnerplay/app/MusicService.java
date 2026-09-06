@@ -40,6 +40,13 @@ public class MusicService extends Service implements MediaPlayer.OnPreparedListe
     private String currentArtist = "Partner Play";
     private String currentUrl = "";
 
+    private boolean isLooping = false;
+    private boolean hasEnded = false;
+    private String nextTrackUrl = null;
+    private String nextTrackTitle = null;
+    private String nextTrackArtist = null;
+    private String nextTrackId = null;
+
     public static MusicService getInstance() {
         return instance;
     }
@@ -75,7 +82,7 @@ public class MusicService extends Service implements MediaPlayer.OnPreparedListe
             mediaPlayer.setOnPreparedListener(this);
             mediaPlayer.setOnErrorListener(this);
             mediaPlayer.setOnCompletionListener(this);
-            mediaPlayer.setLooping(true);
+            mediaPlayer.setLooping(isLooping);
         }
     }
 
@@ -128,13 +135,20 @@ public class MusicService extends Service implements MediaPlayer.OnPreparedListe
             String artist = intent.getStringExtra("artist");
             String trackId = intent.getStringExtra("trackId");
             double currentTime = intent.getDoubleExtra("currentTime", 0.0);
+            boolean loop = intent.getBooleanExtra("loop", false);
+
+            this.isLooping = loop;
+            this.nextTrackUrl = intent.getStringExtra("nextTrackUrl");
+            this.nextTrackTitle = intent.getStringExtra("nextTrackTitle");
+            this.nextTrackArtist = intent.getStringExtra("nextTrackArtist");
+            this.nextTrackId = intent.getStringExtra("nextTrackId");
 
             if (title != null && !title.trim().isEmpty()) currentTitle = title;
             if (artist != null && !artist.trim().isEmpty()) currentArtist = artist;
             if (trackId != null && !trackId.trim().isEmpty()) currentTrackId = trackId;
 
             if (url != null && !url.trim().isEmpty()) {
-                playSource(url, (int) (currentTime * 1000));
+                playSource(url, (int) (currentTime * 1000), loop);
             } else {
                 resumeMedia();
             }
@@ -144,13 +158,15 @@ public class MusicService extends Service implements MediaPlayer.OnPreparedListe
         return START_STICKY;
     }
 
-    private void playSource(String url, int seekMs) {
+    private void playSource(String url, int seekMs, boolean loop) {
         initMediaPlayer();
         currentUrl = url;
+        hasEnded = false;
+        isLooping = loop;
 
         try {
             mediaPlayer.reset();
-            mediaPlayer.setLooping(true);
+            mediaPlayer.setLooping(loop);
 
             if (url.startsWith("/music/")) {
                 // Bundled APK asset file
@@ -193,11 +209,16 @@ public class MusicService extends Service implements MediaPlayer.OnPreparedListe
     }
 
     public void seekTo(int msec) {
+        hasEnded = false;
         if (mediaPlayer != null) {
             try {
                 mediaPlayer.seekTo(msec);
             } catch (Exception ignored) {}
         }
+    }
+
+    public boolean hasEnded() {
+        return hasEnded;
     }
 
     public boolean isPlaying() {
@@ -333,6 +354,32 @@ public class MusicService extends Service implements MediaPlayer.OnPreparedListe
     @Override
     public void onCompletion(MediaPlayer mp) {
         Log.d(TAG, "Track completed");
+        if (isLooping) {
+            return;
+        }
+        hasEnded = true;
+
+        if (nextTrackUrl != null && !nextTrackUrl.trim().isEmpty()) {
+            String nUrl = nextTrackUrl;
+            String nTitle = nextTrackTitle != null ? nextTrackTitle : "Our Playlist";
+            String nArtist = nextTrackArtist != null ? nextTrackArtist : "Partner Play";
+            String nId = nextTrackId != null ? nextTrackId : "";
+
+            nextTrackUrl = null;
+            nextTrackTitle = null;
+            nextTrackArtist = null;
+            nextTrackId = null;
+
+            currentTitle = nTitle;
+            currentArtist = nArtist;
+            currentTrackId = nId;
+
+            playSource(nUrl, 0, false);
+            updateNotification();
+        } else {
+            releaseWakeLock();
+            updateNotification();
+        }
     }
 
     @Override

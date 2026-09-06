@@ -26,7 +26,11 @@ import {
   HardDrive,
   Trash2,
   FileAudio,
-  CheckCircle2
+  CheckCircle2,
+  Repeat,
+  Repeat1,
+  SkipBack,
+  SkipForward
 } from 'lucide-react';
 import { 
   saveLocalTrackToDB, 
@@ -335,6 +339,44 @@ export default function AudioPlayer({
   const fileInputRef = useRef(null);
   const activeBlobUrlsRef = useRef(new Map());
 
+  const [repeatMode, setRepeatMode] = useState('all'); // 'all' (auto-advance & loop playlist), 'one' (repeat song), 'off' (stop at end)
+  const repeatModeRef = useRef(repeatMode);
+  useEffect(() => {
+    repeatModeRef.current = repeatMode;
+  }, [repeatMode]);
+
+  const fullPlaylist = [
+    ...PRESET_TRACKS,
+    ...localTracks.map((lt) => ({
+      ...lt,
+      url: activeBlobUrlsRef.current.get(lt.id) || lt.url,
+    })),
+  ];
+  const fullPlaylistRef = useRef(fullPlaylist);
+  useEffect(() => {
+    fullPlaylistRef.current = fullPlaylist;
+  }, [fullPlaylist]);
+
+  const getNextTrack = (track) => {
+    const list = fullPlaylistRef.current;
+    if (!list || list.length === 0) return null;
+    const currentId = track?.id;
+    const idx = list.findIndex((t) => t.id === currentId);
+    if (idx === -1) return list[0] || null;
+    const nextIdx = (idx + 1) % list.length;
+    return list[nextIdx] || null;
+  };
+
+  const getPrevTrack = (track) => {
+    const list = fullPlaylistRef.current;
+    if (!list || list.length === 0) return null;
+    const currentId = track?.id;
+    const idx = list.findIndex((t) => t.id === currentId);
+    if (idx === -1) return list[0] || null;
+    const prevIdx = (idx - 1 + list.length) % list.length;
+    return list[prevIdx] || null;
+  };
+
   // Load user's saved local storage tracks from IndexedDB
   useEffect(() => {
     getLocalTracksFromDB()
@@ -389,12 +431,18 @@ export default function AudioPlayer({
         htmlAudioRef.current.pause();
       }
       if (isPlaying) {
+        const nextT = getNextTrack(currentTrack);
         window.Capacitor.Plugins.WidgetBridge.playNativeTrack({
           id: currentTrack.id,
           title: currentTrack.title || 'Our Playlist',
           artist: currentTrack.artist || 'Partner Play',
           url: currentTrack.url,
           currentTime,
+          loop: repeatModeRef.current === 'one',
+          nextTrackUrl: repeatModeRef.current === 'one' ? null : (nextT?.url || null),
+          nextTrackTitle: repeatModeRef.current === 'one' ? null : (nextT?.title || null),
+          nextTrackArtist: repeatModeRef.current === 'one' ? null : (nextT?.artist || null),
+          nextTrackId: repeatModeRef.current === 'one' ? null : (nextT?.id || null),
         }).catch((err) => console.warn('Native play error:', err));
       } else {
         window.Capacitor.Plugins.WidgetBridge.pauseNativeTrack().catch(() => {});
@@ -461,29 +509,10 @@ export default function AudioPlayer({
           if (isPlaying) togglePlay();
         });
         navigator.mediaSession.setActionHandler('nexttrack', () => {
-          const allTracks = [DEFAULT_TRACK, ...localTracks];
-          const currentIndex = allTracks.findIndex((t) => t.id === currentTrack.id);
-          const nextTrack = allTracks[(currentIndex + 1) % allTracks.length];
-          if (nextTrack) {
-            if (nextTrack.isLocal || nextTrack.blob) {
-              handlePlaySavedLocalTrack(nextTrack);
-            } else {
-              handleSelectTrack(nextTrack);
-            }
-          }
+          handleNextTrack(true);
         });
         navigator.mediaSession.setActionHandler('previoustrack', () => {
-          const allTracks = [DEFAULT_TRACK, ...localTracks];
-          const currentIndex = allTracks.findIndex((t) => t.id === currentTrack.id);
-          const prevIndex = (currentIndex - 1 + allTracks.length) % allTracks.length;
-          const prevTrack = allTracks[prevIndex];
-          if (prevTrack) {
-            if (prevTrack.isLocal || prevTrack.blob) {
-              handlePlaySavedLocalTrack(prevTrack);
-            } else {
-              handleSelectTrack(prevTrack);
-            }
-          }
+          handlePrevTrack();
         });
       } catch (err) {
         console.log('MediaSession handlers not supported:', err);
@@ -595,8 +624,7 @@ export default function AudioPlayer({
                   }
                 } else if (event.data === 0) {
                   // Ended
-                  setIsPlaying(false);
-                  isPlayingRef.current = false;
+                  handleTrackEnded();
                 }
               },
               onError: (event) => {
@@ -835,12 +863,18 @@ export default function AudioPlayer({
           }
           if (isNativeAndroid) {
             if (htmlAudioRef.current) htmlAudioRef.current.pause();
+            const nextT = getNextTrack(track);
             window.Capacitor.Plugins.WidgetBridge.playNativeTrack({
               id: track.id,
               title: track.title,
               artist: track.artist,
               url: track.url,
               currentTime: 0,
+              loop: repeatModeRef.current === 'one',
+              nextTrackUrl: repeatModeRef.current === 'one' ? null : (nextT?.url || null),
+              nextTrackTitle: repeatModeRef.current === 'one' ? null : (nextT?.title || null),
+              nextTrackArtist: repeatModeRef.current === 'one' ? null : (nextT?.artist || null),
+              nextTrackId: repeatModeRef.current === 'one' ? null : (nextT?.id || null),
             }).catch((err) => console.warn('Native sync play error:', err));
           } else if (htmlAudioRef.current) {
             htmlAudioRef.current.src = track.url;
@@ -848,6 +882,9 @@ export default function AudioPlayer({
             htmlAudioRef.current.play().catch(() => {});
           }
         }
+      } else if (action === 'set_repeat_mode' && data.repeatMode) {
+        setRepeatMode(data.repeatMode);
+        repeatModeRef.current = data.repeatMode;
       } else if (action === 'update_metadata' && track) {
         if (track.id === currentTrackRef.current?.id) {
           setCurrentTrack(track);
@@ -879,6 +916,22 @@ export default function AudioPlayer({
               if (typeof status.duration === 'number' && status.duration > 0) setDuration(status.duration);
               if (typeof status.isPlaying === 'boolean' && status.isPlaying !== isPlayingRef.current) {
                 setIsPlaying(status.isPlaying);
+              }
+              if (status.trackId && status.trackId !== currentTrackRef.current?.id) {
+                const found = fullPlaylistRef.current.find((t) => t.id === status.trackId);
+                if (found) {
+                  setCurrentTrack(found);
+                  currentTrackRef.current = found;
+                  socket.emit('audio:sync', {
+                    action: 'change_track',
+                    track: found,
+                    currentTime: 0,
+                    sentAt: Date.now(),
+                    initiatedBy: user?.name || 'Partner',
+                  });
+                }
+              } else if (status.hasEnded) {
+                handleTrackEnded();
               }
             }
           }).catch(() => {});
@@ -1005,12 +1058,18 @@ export default function AudioPlayer({
       }
       if (isNativeAndroid) {
         if (htmlAudioRef.current) htmlAudioRef.current.pause();
+        const nextT = getNextTrack(track);
         window.Capacitor.Plugins.WidgetBridge.playNativeTrack({
           id: track.id,
           title: track.title,
           artist: track.artist,
           url: track.url,
           currentTime: 0,
+          loop: repeatModeRef.current === 'one',
+          nextTrackUrl: repeatModeRef.current === 'one' ? null : (nextT?.url || null),
+          nextTrackTitle: repeatModeRef.current === 'one' ? null : (nextT?.title || null),
+          nextTrackArtist: repeatModeRef.current === 'one' ? null : (nextT?.artist || null),
+          nextTrackId: repeatModeRef.current === 'one' ? null : (nextT?.id || null),
         }).catch((err) => console.warn('Native play error:', err));
       } else if (htmlAudioRef.current) {
         htmlAudioRef.current.src = track.url;
@@ -1272,15 +1331,89 @@ export default function AudioPlayer({
     }
   };
 
+  const handleNextTrack = (manual = false) => {
+    const next = getNextTrack(currentTrackRef.current);
+    if (next) {
+      if (next.isLocal || next.blob) {
+        handlePlaySavedLocalTrack(next);
+      } else {
+        handleSelectTrack(next);
+      }
+    }
+  };
+
+  const handlePrevTrack = () => {
+    if (currentTime > 3) {
+      handleSeek({ target: { value: 0 } });
+      return;
+    }
+    const prev = getPrevTrack(currentTrackRef.current);
+    if (prev) {
+      if (prev.isLocal || prev.blob) {
+        handlePlaySavedLocalTrack(prev);
+      } else {
+        handleSelectTrack(prev);
+      }
+    }
+  };
+
+  const handleTrackEnded = () => {
+    const mode = repeatModeRef.current;
+    if (mode === 'one') {
+      // Loop single song
+      if (currentTrackRef.current?.source === 'youtube') {
+        if (ytPlayerRef.current && ytPlayerRef.current.seekTo) {
+          ytPlayerRef.current.seekTo(0, true);
+          ytPlayerRef.current.playVideo();
+        }
+      } else if (htmlAudioRef.current) {
+        htmlAudioRef.current.currentTime = 0;
+        htmlAudioRef.current.play().catch(() => {});
+      } else if (isNativeAndroid) {
+        handleSelectTrack(currentTrackRef.current);
+      }
+      return;
+    }
+
+    const list = fullPlaylistRef.current;
+    const currentIndex = list.findIndex((t) => t.id === currentTrackRef.current?.id);
+
+    if (mode === 'off' && currentIndex === list.length - 1) {
+      // Reached the end of playlist in Repeat Off mode
+      setIsPlaying(false);
+      isPlayingRef.current = false;
+      return;
+    }
+
+    // Auto-advance to next song in playlist
+    handleNextTrack(false);
+  };
+
+  const handleToggleRepeatMode = () => {
+    const modes = ['all', 'one', 'off'];
+    const nextMode = modes[(modes.indexOf(repeatMode) + 1) % modes.length];
+    setRepeatMode(nextMode);
+    repeatModeRef.current = nextMode;
+
+    const label = nextMode === 'all' ? 'Loop Playlist' : nextMode === 'one' ? 'Loop Current Song' : 'Repeat Off';
+    setRemoteToast(`Repeat mode: ${label}`);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setRemoteToast(null), 2500);
+
+    socket.emit('audio:sync', {
+      action: 'set_repeat_mode',
+      repeatMode: nextMode,
+      initiatedBy: user?.name,
+    });
+  };
+
   return (
     <>
       {/* Background HTML5 audio element (src managed via audio controller useEffect) */}
       <audio
         ref={htmlAudioRef}
         preload="auto"
-        onEnded={() => {
-          if (currentTrack.source !== 'youtube') setIsPlaying(false);
-        }}
+        onEnded={handleTrackEnded}
       />
 
       {/* Remote Jukebox Partner Activity Toast */}
@@ -1327,6 +1460,13 @@ export default function AudioPlayer({
                 className="w-6 h-6 rounded-lg bg-[#ff5722] hover:bg-[#f4511e] text-white flex items-center justify-center shadow-xs active:scale-95 transition-transform"
               >
                 {isPlaying ? <Pause className="w-3 h-3 fill-current" /> : <Play className="w-3 h-3 fill-current ml-0.5" />}
+              </button>
+              <button
+                onClick={() => handleNextTrack(true)}
+                title="Next Song"
+                className="w-6 h-6 rounded-lg bg-[#f4efe8] hover:bg-zinc-200 text-zinc-600 flex items-center justify-center active:scale-95 transition-transform"
+              >
+                <SkipForward className="w-3 h-3 fill-current" />
               </button>
               <button
                 onClick={() => setIsMiniPlayerDismissed(true)}
@@ -1450,7 +1590,7 @@ export default function AudioPlayer({
             </div>
           </div>
 
-          {/* Play/Pause & Volume Controls */}
+          {/* Play/Pause, Skip & Volume Controls */}
           <div className="w-full flex items-center justify-between mt-3 pt-3 border-t border-[#ede8e1]">
             {/* Volume */}
             <div className="flex items-center gap-1.5">
@@ -1467,27 +1607,74 @@ export default function AudioPlayer({
                 step="0.05"
                 value={isMuted ? 0 : volume}
                 onChange={handleVolumeChange}
-                className="w-16 sm:w-20 h-1 bg-[#ede8e1] rounded appearance-none cursor-pointer accent-[#ff5722]"
+                className="w-12 sm:w-16 h-1 bg-[#ede8e1] rounded appearance-none cursor-pointer accent-[#ff5722]"
               />
             </div>
 
-            {/* Play/Pause Button (Primary Coral Studio Button) */}
-            <button
-              id="master-play-btn"
-              onClick={togglePlay}
-              className="w-12 h-12 rounded-2xl studio-btn-primary flex items-center justify-center shadow-md active:scale-95 transition-transform"
-            >
-              {isPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-0.5" />}
-            </button>
+            {/* Previous, Play/Pause, Next Controls */}
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <button
+                onClick={handlePrevTrack}
+                title="Previous Song"
+                className="w-8 h-8 rounded-xl text-zinc-500 hover:text-zinc-900 hover:bg-[#faf7f2] flex items-center justify-center active:scale-95 transition-all"
+              >
+                <SkipBack className="w-4 h-4 fill-current" />
+              </button>
 
-            {/* Re-sync Button */}
-            <button
-              onClick={() => handleSelectTrack(currentTrack)}
-              title="Re-sync playback with partner"
-              className="p-2 text-zinc-400 hover:text-zinc-700 rounded-xl hover:bg-[#faf7f2] transition-colors"
-            >
-              <RotateCcw className="w-4 h-4" />
-            </button>
+              <button
+                id="master-play-btn"
+                onClick={togglePlay}
+                className="w-12 h-12 rounded-2xl studio-btn-primary flex items-center justify-center shadow-md active:scale-95 transition-transform"
+              >
+                {isPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-0.5" />}
+              </button>
+
+              <button
+                onClick={() => handleNextTrack(true)}
+                title="Next Song"
+                className="w-8 h-8 rounded-xl text-zinc-500 hover:text-zinc-900 hover:bg-[#faf7f2] flex items-center justify-center active:scale-95 transition-all"
+              >
+                <SkipForward className="w-4 h-4 fill-current" />
+              </button>
+            </div>
+
+            {/* Repeat Mode & Re-sync */}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={handleToggleRepeatMode}
+                title={
+                  repeatMode === 'all'
+                    ? 'Repeat: Loop Playlist (Click to Loop Current Song)'
+                    : repeatMode === 'one'
+                    ? 'Repeat: Loop Current Song (Click to Turn Off Repeat)'
+                    : 'Repeat: Off (Click to Loop Playlist)'
+                }
+                className={`p-2 rounded-xl transition-all relative flex items-center justify-center ${
+                  repeatMode === 'all'
+                    ? 'text-[#ff5722] bg-orange-50 hover:bg-orange-100 border border-orange-200 shadow-2xs'
+                    : repeatMode === 'one'
+                    ? 'text-pink-600 bg-pink-50 hover:bg-pink-100 border border-pink-200 shadow-2xs'
+                    : 'text-zinc-400 hover:text-zinc-700 hover:bg-[#faf7f2]'
+                }`}
+              >
+                {repeatMode === 'one' ? (
+                  <Repeat1 className="w-4 h-4" />
+                ) : (
+                  <Repeat className="w-4 h-4" />
+                )}
+                {repeatMode !== 'off' && (
+                  <span className={`absolute -bottom-0.5 -right-0.5 w-1.5 h-1.5 rounded-full ${repeatMode === 'one' ? 'bg-pink-500' : 'bg-[#ff5722]'}`} />
+                )}
+              </button>
+
+              <button
+                onClick={() => handleSelectTrack(currentTrack)}
+                title="Re-sync playback with partner"
+                className="p-2 text-zinc-400 hover:text-zinc-700 rounded-xl hover:bg-[#faf7f2] transition-colors"
+              >
+                <RotateCcw className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
 
