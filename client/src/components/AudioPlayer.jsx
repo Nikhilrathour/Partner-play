@@ -37,18 +37,240 @@ import {
 const SILENT_AUDIO = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
 
 export const DEFAULT_TRACK = {
-  id: '98zHKN-xSHk',
-  videoId: '98zHKN-xSHk',
+  id: 'blue',
+  url: '/music/blue.mp3',
   title: 'blue',
   artist: 'yung kai',
-  genre: 'Love / Acoustic',
-  source: 'youtube',
+  genre: 'Love / Playlist',
+  source: 'local',
   icon: 'heart',
   color: 'bg-blue-50 text-blue-600 border-blue-200',
   duration: 213,
 };
 
-export const PRESET_TRACKS = [DEFAULT_TRACK];
+export const PRESET_TRACKS = [
+  DEFAULT_TRACK,
+  {
+    "id": "sunflower",
+    "url": "/music/sunflower.mp3",
+    "title": "Sunflower",
+    "artist": "Post Malone",
+    "genre": "Love / Playlist",
+    "source": "local",
+    "icon": "heart",
+    "color": "bg-pink-50 text-pink-600 border-pink-200"
+  },
+  {
+    "id": "whistle",
+    "url": "/music/whistle.mp3",
+    "title": "Whistle",
+    "artist": "BLACKPINK",
+    "genre": "Love / Playlist",
+    "source": "local",
+    "icon": "heart",
+    "color": "bg-pink-50 text-pink-600 border-pink-200"
+  },
+  {
+    "id": "you_never_know",
+    "url": "/music/you_never_know.mp3",
+    "title": "You Never Know",
+    "artist": "BLACKPINK",
+    "genre": "Love / Playlist",
+    "source": "local",
+    "icon": "heart",
+    "color": "bg-pink-50 text-pink-600 border-pink-200"
+  },
+  {
+    "id": "secret_love_song",
+    "url": "/music/secret_love_song.mp3",
+    "title": "Secret Love Song",
+    "artist": "Little Mix",
+    "genre": "Love / Playlist",
+    "source": "local",
+    "icon": "heart",
+    "color": "bg-pink-50 text-pink-600 border-pink-200"
+  },
+  {
+    "id": "despacito",
+    "url": "/music/despacito.mp3",
+    "title": "Despacito",
+    "artist": "Luis Fonsi, Daddy Yankee",
+    "genre": "Love / Playlist",
+    "source": "local",
+    "icon": "heart",
+    "color": "bg-pink-50 text-pink-600 border-pink-200"
+  },
+  {
+    "id": "little_do_you_know",
+    "url": "/music/little_do_you_know.mp3",
+    "title": "Little Do You Know",
+    "artist": "Alex & Sierra",
+    "genre": "Love / Playlist",
+    "source": "local",
+    "icon": "heart",
+    "color": "bg-pink-50 text-pink-600 border-pink-200"
+  },
+  {
+    "id": "cars_outside",
+    "url": "/music/cars_outside.mp3",
+    "title": "Car's Outside",
+    "artist": "James Arthur",
+    "genre": "Love / Playlist",
+    "source": "local",
+    "icon": "heart",
+    "color": "bg-pink-50 text-pink-600 border-pink-200"
+  },
+  {
+    "id": "star_crossed",
+    "url": "/music/star_crossed.mp3",
+    "title": "Star-Crossed",
+    "artist": "Peggy",
+    "genre": "Love / Playlist",
+    "source": "local",
+    "icon": "heart",
+    "color": "bg-pink-50 text-pink-600 border-pink-200"
+  },
+  {
+    "id": "worlds_smallest_violin",
+    "url": "/music/worlds_smallest_violin.mp3",
+    "title": "World's Smallest Violin",
+    "artist": "AJR",
+    "genre": "Love / Playlist",
+    "source": "local",
+    "icon": "heart",
+    "color": "bg-pink-50 text-pink-600 border-pink-200"
+  },
+  {
+    "id": "dam",
+    "url": "/music/dam.mp3",
+    "title": "DAM",
+    "artist": "SB19",
+    "genre": "Love / Playlist",
+    "source": "local",
+    "icon": "heart",
+    "color": "bg-pink-50 text-pink-600 border-pink-200"
+  },
+  {
+    "id": "diamonds",
+    "url": "/music/diamonds.mp3",
+    "title": "Diamonds",
+    "artist": "Rihanna",
+    "genre": "Love / Playlist",
+    "source": "local",
+    "icon": "heart",
+    "color": "bg-pink-50 text-pink-600 border-pink-200"
+  },
+  {
+    "id": "yesterday_once_more",
+    "url": "/music/yesterday_once_more.mp3",
+    "title": "Yesterday Once More",
+    "artist": "Carpenters",
+    "genre": "Love / Playlist",
+    "source": "local",
+    "icon": "heart",
+    "color": "bg-pink-50 text-pink-600 border-pink-200"
+  },
+  {
+    "id": "die_with_a_smile",
+    "url": "/music/die_with_a_smile.mp3",
+    "title": "Die With A Smile",
+    "artist": "Lady Gaga, Bruno Mars",
+    "genre": "Love / Playlist",
+    "source": "local",
+    "icon": "heart",
+    "color": "bg-pink-50 text-pink-600 border-pink-200"
+  },
+  {
+    "id": "just_the_way_you_are",
+    "url": "/music/just_the_way_you_are.mp3",
+    "title": "Just The Way You Are",
+    "artist": "Bruno Mars",
+    "genre": "Love / Playlist",
+    "source": "local",
+    "icon": "heart",
+    "color": "bg-pink-50 text-pink-600 border-pink-200"
+  },
+  {
+    "id": "marry_you",
+    "url": "/music/marry_you.mp3",
+    "title": "Marry You",
+    "artist": "Bruno Mars",
+    "genre": "Love / Playlist",
+    "source": "local",
+    "icon": "heart",
+    "color": "bg-pink-50 text-pink-600 border-pink-200"
+  },
+  {
+    "id": "versace_on_the_floor",
+    "url": "/music/versace_on_the_floor.mp3",
+    "title": "Versace On The Floor",
+    "artist": "Bruno Mars",
+    "genre": "Love / Playlist",
+    "source": "local",
+    "icon": "heart",
+    "color": "bg-pink-50 text-pink-600 border-pink-200"
+  },
+  {
+    "id": "grenade",
+    "url": "/music/grenade.mp3",
+    "title": "Grenade",
+    "artist": "Bruno Mars",
+    "genre": "Love / Playlist",
+    "source": "local",
+    "icon": "heart",
+    "color": "bg-pink-50 text-pink-600 border-pink-200"
+  },
+  {
+    "id": "i_love_you_bodyguard",
+    "url": "/music/i_love_you_bodyguard.mp3",
+    "title": "I Love You",
+    "artist": "Ash King, Clinton Cerejo (Bodyguard)",
+    "genre": "Love / Playlist",
+    "source": "local",
+    "icon": "heart",
+    "color": "bg-pink-50 text-pink-600 border-pink-200"
+  },
+  {
+    "id": "homage",
+    "url": "/music/homage.mp3",
+    "title": "Homage",
+    "artist": "Mild High Club",
+    "genre": "Love / Playlist",
+    "source": "local",
+    "icon": "heart",
+    "color": "bg-pink-50 text-pink-600 border-pink-200"
+  },
+  {
+    "id": "finding_her",
+    "url": "/music/finding_her.mp3",
+    "title": "Finding Her",
+    "artist": "Unknown",
+    "genre": "Love / Playlist",
+    "source": "local",
+    "icon": "heart",
+    "color": "bg-pink-50 text-pink-600 border-pink-200"
+  },
+  {
+    "id": "tum_hi_ho",
+    "url": "/music/tum_hi_ho.mp3",
+    "title": "Tum Hi Ho",
+    "artist": "Arijit Singh",
+    "genre": "Love / Playlist",
+    "source": "local",
+    "icon": "heart",
+    "color": "bg-pink-50 text-pink-600 border-pink-200"
+  },
+  {
+    "id": "teri_baatein",
+    "url": "/music/teri_baatein.mp3",
+    "title": "Teri Baatein",
+    "artist": "Unknown",
+    "genre": "Love / Playlist",
+    "source": "local",
+    "icon": "heart",
+    "color": "bg-pink-50 text-pink-600 border-pink-200"
+  }
+];
 
 // Bespoke icon renderer for tracks
 export function renderTrackIcon(iconName, className = 'w-4 h-4') {

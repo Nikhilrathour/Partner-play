@@ -100,12 +100,12 @@ app.use((err, req, res, next) => {
 
 // Default playable test song: "blue" by yung kai
 const DEFAULT_TEST_TRACK = {
-  source: 'youtube',
-  id: '98zHKN-xSHk',
-  videoId: '98zHKN-xSHk',
+  source: 'local',
+  id: 'blue',
+  url: '/music/blue.mp3',
   title: 'blue',
   artist: 'yung kai',
-  genre: 'Love / Acoustic',
+  genre: 'Love / Playlist',
   icon: 'heart',
   color: 'bg-blue-50 text-blue-600 border-blue-200',
   duration: 213,
