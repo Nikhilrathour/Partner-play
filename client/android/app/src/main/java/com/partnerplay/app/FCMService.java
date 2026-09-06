@@ -107,6 +107,49 @@ public class FCMService extends FirebaseMessagingService {
         String roomCode = (data != null && data.containsKey("roomCode")) ? data.get("roomCode") : "";
         String type = (data != null && data.containsKey("type")) ? data.get("type") : "general";
 
+        // Option 2: Full Synchronized Autoplay via background MusicService
+        if ("music".equalsIgnoreCase(type) && data != null) {
+            String musicUrl = data.get("url");
+            String source = data.get("source");
+            if (musicUrl != null && !musicUrl.trim().isEmpty() && !"youtube".equalsIgnoreCase(source)) {
+                Log.d(TAG, "Dynamic music push received! Starting background playback for: " + musicUrl);
+                String songTitle = (data.containsKey("songTitle") && data.get("songTitle") != null && !data.get("songTitle").isEmpty())
+                        ? data.get("songTitle") : title;
+                String songArtist = (data.containsKey("songArtist") && data.get("songArtist") != null && !data.get("songArtist").isEmpty())
+                        ? data.get("songArtist") : "Partner Play";
+                String trackId = data.containsKey("trackId") ? data.get("trackId") : "";
+                double currentTime = 0.0;
+                if (data.containsKey("currentTime")) {
+                    try {
+                        currentTime = Double.parseDouble(data.get("currentTime"));
+                    } catch (Exception ignored) {}
+                }
+
+                try {
+                    Intent musicIntent = new Intent(this, MusicService.class);
+                    musicIntent.setAction(MusicService.ACTION_PLAY);
+                    musicIntent.putExtra("url", musicUrl);
+                    musicIntent.putExtra("title", songTitle);
+                    musicIntent.putExtra("artist", songArtist);
+                    musicIntent.putExtra("trackId", trackId);
+                    musicIntent.putExtra("currentTime", currentTime);
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        startForegroundService(musicIntent);
+                    } else {
+                        startService(musicIntent);
+                    }
+
+                    // MusicService creates its own rich media notification with lock-screen Play/Pause controls.
+                    // Also refresh the home screen music widget.
+                    MusicWidgetProvider.triggerRefreshAll(this);
+                    return;
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed to start background MusicService from push:", e);
+                }
+            }
+        }
+
         int iconRes = R.drawable.ic_notification;
 
         // Build intent to open app with room and tab info

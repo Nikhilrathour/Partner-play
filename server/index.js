@@ -1048,7 +1048,16 @@ io.on('connection', (socket) => {
       sendFCMToOfflinePartners(currentRoomCode, currentUser?.id, {
         title: '🎵 Music Playing!',
         body: `${currentUser?.name || 'Your partner'} started playing "${trackTitle}"${trackArtist ? ' by ' + trackArtist : ''} — tap to listen together!`,
-      }, { type: 'music', action });
+      }, {
+        type: 'music',
+        action,
+        url: room.currentTrack.url || '',
+        trackId: room.currentTrack.id || '',
+        songTitle: trackTitle,
+        songArtist: trackArtist,
+        source: room.currentTrack.source || 'local',
+        currentTime: room.currentTrack.currentTime || 0,
+      });
     }
   });
 

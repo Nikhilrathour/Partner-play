@@ -46,6 +46,7 @@ public class MusicService extends Service implements MediaPlayer.OnPreparedListe
     private String nextTrackTitle = null;
     private String nextTrackArtist = null;
     private String nextTrackId = null;
+    private int pendingSeekMs = 0;
 
     public static MusicService getInstance() {
         return instance;
@@ -163,6 +164,7 @@ public class MusicService extends Service implements MediaPlayer.OnPreparedListe
         currentUrl = url;
         hasEnded = false;
         isLooping = loop;
+        pendingSeekMs = seekMs;
 
         try {
             mediaPlayer.reset();
@@ -339,6 +341,10 @@ public class MusicService extends Service implements MediaPlayer.OnPreparedListe
     @Override
     public void onPrepared(MediaPlayer mp) {
         try {
+            if (pendingSeekMs > 0 && pendingSeekMs < mp.getDuration()) {
+                mp.seekTo(pendingSeekMs);
+                pendingSeekMs = 0;
+            }
             mp.start();
             acquireWakeLock();
             updateNotification();
