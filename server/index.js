@@ -228,6 +228,44 @@ async function sendFCMToOfflinePartners(roomCode, senderUserId, notification, da
   }
 }
 
+// Send silent data-only FCM push to all partners in a room to refresh their home screen widgets
+async function sendFCMWidgetRefresh(roomCode, senderUserId) {
+  if (!fcmEnabled) return;
+  if (!roomCode) return;
+  const normCode = roomCode.trim().toUpperCase();
+
+  const targets = [];
+  for (const [uid, entry] of fcmTokens.entries()) {
+    if (entry.roomCode === normCode && uid !== senderUserId) {
+      targets.push(entry);
+    }
+  }
+
+  if (targets.length === 0) return;
+
+  for (const target of targets) {
+    try {
+      await admin.messaging().send({
+        token: target.token,
+        data: {
+          type: 'widget_update',
+          roomCode: normCode,
+          action: 'refresh_widget' // explicitly handled in Android FCMService
+        },
+        android: {
+          priority: 'normal',
+        }
+      });
+      console.log(`[FCM] Sent silent widget refresh to user ${target.userId}`);
+    } catch (err) {
+      if (err.code === 'messaging/registration-token-not-registered' ||
+          err.code === 'messaging/invalid-registration-token') {
+        fcmTokens.delete(target.userId);
+      }
+    }
+  }
+}
+
 // In-memory widget thumbnail store (code -> { buffer, updatedAt, authorName })
 const roomThumbnails = new Map();
 
@@ -531,6 +569,10 @@ app.post('/api/room/:code/snapshot', (req, res) => {
       updatedAt: Date.now(),
       authorName: authorName || 'Partner',
     });
+
+    // Send silent push to all offline devices to immediately refresh the widget
+    // We don't exclude sender because they might be drawing from one device and want their other device to update.
+    sendFCMWidgetRefresh(code, null).catch(err => console.error("FCM Widget error", err));
 
     return res.json({ success: true, code, updatedAt: Date.now() });
   } catch (err) {

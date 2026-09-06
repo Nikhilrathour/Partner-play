@@ -89,6 +89,13 @@ public class FCMService extends FirebaseMessagingService {
         // Extract data payload for deep linking
         Map<String, String> data = remoteMessage.getData();
         if (data != null && !data.isEmpty()) {
+            if ("refresh_widget".equals(data.get("action"))) {
+                Log.d(TAG, "Received silent widget refresh push");
+                PartnerWidgetProvider.triggerRefreshAll(this);
+                MusicWidgetProvider.triggerRefreshAll(this);
+                return; // Do not show a system notification
+            }
+
             if (data.containsKey("title") && data.get("title") != null && !data.get("title").isEmpty()) {
                 title = data.get("title");
             }

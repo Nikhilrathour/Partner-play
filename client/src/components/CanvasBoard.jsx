@@ -200,6 +200,10 @@ export default function CanvasBoard({ room, user, isActive = true }) {
             imageBase64,
             authorName: user?.name || 'Partner',
           }),
+        }).then(res => {
+          if (res.ok && typeof window !== 'undefined' && window.Capacitor?.Plugins?.WidgetBridge) {
+            window.Capacitor.Plugins.WidgetBridge.refreshWidget().catch(() => {});
+          }
         }).catch(() => {});
       } catch (err) {
         // Safe catch for canvas read errors
