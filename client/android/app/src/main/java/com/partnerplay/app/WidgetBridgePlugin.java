@@ -205,6 +205,106 @@ public class WidgetBridgePlugin extends Plugin {
     }
 
     @PluginMethod
+    public void playNativeTrack(PluginCall call) {
+        String url = call.getString("url", "");
+        String title = call.getString("title", "Our Playlist");
+        String artist = call.getString("artist", "Partner Play");
+        String trackId = call.getString("id", "");
+        double currentTime = call.getDouble("currentTime", 0.0);
+
+        try {
+            Context context = getContext();
+            Intent intent = new Intent(context, MusicService.class);
+            intent.setAction(MusicService.ACTION_PLAY);
+            intent.putExtra("url", url);
+            intent.putExtra("title", title);
+            intent.putExtra("artist", artist);
+            intent.putExtra("trackId", trackId);
+            intent.putExtra("currentTime", currentTime);
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent);
+            } else {
+                context.startService(intent);
+            }
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("Failed to play native track", e);
+        }
+    }
+
+    @PluginMethod
+    public void pauseNativeTrack(PluginCall call) {
+        try {
+            Context context = getContext();
+            Intent intent = new Intent(context, MusicService.class);
+            intent.setAction(MusicService.ACTION_PAUSE);
+            context.startService(intent);
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("Failed to pause native track", e);
+        }
+    }
+
+    @PluginMethod
+    public void resumeNativeTrack(PluginCall call) {
+        try {
+            Context context = getContext();
+            Intent intent = new Intent(context, MusicService.class);
+            intent.setAction(MusicService.ACTION_RESUME);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent);
+            } else {
+                context.startService(intent);
+            }
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("Failed to resume native track", e);
+        }
+    }
+
+    @PluginMethod
+    public void seekNativeTrack(PluginCall call) {
+        try {
+            double positionSec = call.getDouble("currentTime", 0.0);
+            MusicService service = MusicService.getInstance();
+            if (service != null) {
+                service.seekTo((int) (positionSec * 1000));
+            }
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("Failed to seek native track", e);
+        }
+    }
+
+    @PluginMethod
+    public void getNativeTrackStatus(PluginCall call) {
+        MusicService service = MusicService.getInstance();
+        JSObject ret = new JSObject();
+        if (service != null) {
+            ret.put("isPlaying", service.isPlaying());
+            ret.put("currentTime", service.getCurrentPositionSec());
+            ret.put("duration", service.getDurationSec());
+            ret.put("trackId", service.getCurrentTrackId());
+            ret.put("title", service.getCurrentTitle());
+            ret.put("artist", service.getCurrentArtist());
+        } else {
+            ret.put("isPlaying", false);
+            ret.put("currentTime", 0);
+            ret.put("duration", 0);
+        }
+        call.resolve(ret);
+    }
+
+    @PluginMethod
     public void startMusicForeground(PluginCall call) {
         String title = call.getString("title", "Our Playlist");
         String artist = call.getString("artist", "Partner Play");

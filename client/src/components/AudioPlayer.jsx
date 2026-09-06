@@ -357,6 +357,11 @@ export default function AudioPlayer({
   const [isMiniPlayerDismissed, setIsMiniPlayerDismissed] = useState(false);
   const toastTimerRef = useRef(null);
 
+  const isNativeAndroid = typeof window !== 'undefined' && !!(
+    (window.Capacitor?.isNativePlatform?.() || window.Capacitor?.getPlatform?.() === 'android') &&
+    window.Capacitor?.Plugins?.WidgetBridge
+  );
+
   useEffect(() => {
     currentTrackRef.current = currentTrack;
   }, [currentTrack]);
@@ -377,8 +382,26 @@ export default function AudioPlayer({
     }
   }, [isPlaying, currentTrack, onPlayStateChange]);
 
-  // Synchronize HTML5 audio element reliably without React DOM attribute collisions
+  // Synchronize audio element (or Android native MediaPlayer for background playback)
   useEffect(() => {
+    if (isNativeAndroid && currentTrack.source !== 'youtube') {
+      if (htmlAudioRef.current) {
+        htmlAudioRef.current.pause();
+      }
+      if (isPlaying) {
+        window.Capacitor.Plugins.WidgetBridge.playNativeTrack({
+          id: currentTrack.id,
+          title: currentTrack.title || 'Our Playlist',
+          artist: currentTrack.artist || 'Partner Play',
+          url: currentTrack.url,
+          currentTime,
+        }).catch((err) => console.warn('Native play error:', err));
+      } else {
+        window.Capacitor.Plugins.WidgetBridge.pauseNativeTrack().catch(() => {});
+      }
+      return;
+    }
+
     const audio = htmlAudioRef.current;
     if (!audio) return;
 
@@ -805,14 +828,25 @@ export default function AudioPlayer({
             htmlAudioRef.current.loop = true;
             htmlAudioRef.current.play().catch(() => {});
           }
-        } else if (htmlAudioRef.current) {
+        } else {
           setShowVideoEmbed(false);
           if (ytPlayerRef.current && ytPlayerRef.current.pauseVideo) {
             ytPlayerRef.current.pauseVideo();
           }
-          htmlAudioRef.current.src = track.url;
-          htmlAudioRef.current.currentTime = 0;
-          htmlAudioRef.current.play().catch(() => {});
+          if (isNativeAndroid) {
+            if (htmlAudioRef.current) htmlAudioRef.current.pause();
+            window.Capacitor.Plugins.WidgetBridge.playNativeTrack({
+              id: track.id,
+              title: track.title,
+              artist: track.artist,
+              url: track.url,
+              currentTime: 0,
+            }).catch((err) => console.warn('Native sync play error:', err));
+          } else if (htmlAudioRef.current) {
+            htmlAudioRef.current.src = track.url;
+            htmlAudioRef.current.currentTime = 0;
+            htmlAudioRef.current.play().catch(() => {});
+          }
         }
       } else if (action === 'update_metadata' && track) {
         if (track.id === currentTrackRef.current?.id) {
@@ -837,10 +871,22 @@ export default function AudioPlayer({
           setCurrentTime(time);
           if (dur > 0) setDuration(dur);
         } catch (err) {}
-      } else if (currentTrack.source !== 'youtube' && htmlAudioRef.current && isPlaying) {
-        setCurrentTime(htmlAudioRef.current.currentTime);
-        if (htmlAudioRef.current.duration) {
-          setDuration(htmlAudioRef.current.duration);
+      } else if (currentTrack.source !== 'youtube') {
+        if (isNativeAndroid) {
+          window.Capacitor.Plugins.WidgetBridge.getNativeTrackStatus().then((status) => {
+            if (status) {
+              if (typeof status.currentTime === 'number') setCurrentTime(status.currentTime);
+              if (typeof status.duration === 'number' && status.duration > 0) setDuration(status.duration);
+              if (typeof status.isPlaying === 'boolean' && status.isPlaying !== isPlayingRef.current) {
+                setIsPlaying(status.isPlaying);
+              }
+            }
+          }).catch(() => {});
+        } else if (htmlAudioRef.current && isPlaying) {
+          setCurrentTime(htmlAudioRef.current.currentTime);
+          if (htmlAudioRef.current.duration) {
+            setDuration(htmlAudioRef.current.duration);
+          }
         }
       }
     }, 500);
@@ -855,13 +901,21 @@ export default function AudioPlayer({
     setIsPlaying(nextIsPlaying);
 
     let activeTime = currentTime;
-    if (currentTrack.source !== 'youtube' && htmlAudioRef.current) {
-      if (nextIsPlaying) {
-        htmlAudioRef.current.play().catch(() => {});
-      } else {
-        htmlAudioRef.current.pause();
+    if (currentTrack.source !== 'youtube') {
+      if (isNativeAndroid) {
+        if (nextIsPlaying) {
+          window.Capacitor.Plugins.WidgetBridge.resumeNativeTrack().catch(() => {});
+        } else {
+          window.Capacitor.Plugins.WidgetBridge.pauseNativeTrack().catch(() => {});
+        }
+      } else if (htmlAudioRef.current) {
+        if (nextIsPlaying) {
+          htmlAudioRef.current.play().catch(() => {});
+        } else {
+          htmlAudioRef.current.pause();
+        }
+        activeTime = htmlAudioRef.current.currentTime;
       }
-      activeTime = htmlAudioRef.current.currentTime;
     } else if (currentTrack.source === 'youtube' && ytPlayerRef.current) {
       if (nextIsPlaying) {
         ytPlayerRef.current.playVideo();
@@ -896,8 +950,12 @@ export default function AudioPlayer({
     const newTime = parseFloat(e.target.value);
     setCurrentTime(newTime);
 
-    if (currentTrack.source !== 'youtube' && htmlAudioRef.current) {
-      htmlAudioRef.current.currentTime = newTime;
+    if (currentTrack.source !== 'youtube') {
+      if (isNativeAndroid) {
+        window.Capacitor.Plugins.WidgetBridge.seekNativeTrack({ currentTime: newTime }).catch(() => {});
+      } else if (htmlAudioRef.current) {
+        htmlAudioRef.current.currentTime = newTime;
+      }
     } else if (currentTrack.source === 'youtube' && ytPlayerRef.current) {
       ytPlayerRef.current.seekTo(newTime, true);
     }
@@ -945,10 +1003,22 @@ export default function AudioPlayer({
           ytPlayerRef.current.pauseVideo();
         } catch (err) {}
       }
-      if (htmlAudioRef.current) {
+      if (isNativeAndroid) {
+        if (htmlAudioRef.current) htmlAudioRef.current.pause();
+        window.Capacitor.Plugins.WidgetBridge.playNativeTrack({
+          id: track.id,
+          title: track.title,
+          artist: track.artist,
+          url: track.url,
+          currentTime: 0,
+        }).catch((err) => console.warn('Native play error:', err));
+      } else if (htmlAudioRef.current) {
         htmlAudioRef.current.src = track.url;
         htmlAudioRef.current.currentTime = 0;
-        htmlAudioRef.current.play().catch(() => {});
+        const p = htmlAudioRef.current.play();
+        if (p && p.catch) {
+          p.catch((err) => console.warn('Audio play error:', err));
+        }
       }
     }
 
