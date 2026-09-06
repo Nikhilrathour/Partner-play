@@ -1,5 +1,6 @@
 package com.partnerplay.app;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -11,6 +12,13 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(WidgetBridgePlugin.class);
         super.onCreate(savedInstanceState);
 
+        // Ensure partner notification channel is registered with Android system immediately on startup
+        try {
+            FCMService.createNotificationChannel(this);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
         try {
             WebView webView = getBridge().getWebView();
             if (webView != null) {
@@ -21,6 +29,12 @@ public class MainActivity extends BridgeActivity {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
     }
 
     @Override

@@ -26,7 +26,29 @@ public class FCMService extends FirebaseMessagingService {
     @Override
     public void onCreate() {
         super.onCreate();
-        createNotificationChannel();
+        createNotificationChannel(this);
+    }
+
+    /**
+     * Creates the notification channel required for Android 8.0+ (Oreo).
+     * Public static so MainActivity can also ensure channel creation immediately on app launch.
+     */
+    public static void createNotificationChannel(Context context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && context != null) {
+            NotificationChannel channel = new NotificationChannel(
+                    CHANNEL_ID,
+                    "Partner Notifications",
+                    NotificationManager.IMPORTANCE_HIGH
+            );
+            channel.setDescription("Notifications from your partner — music, drawings, and whisper notes");
+            channel.enableVibration(true);
+            channel.setShowBadge(true);
+
+            NotificationManager notificationManager = context.getSystemService(NotificationManager.class);
+            if (notificationManager != null) {
+                notificationManager.createNotificationChannel(channel);
+            }
+        }
     }
 
     /**
@@ -36,7 +58,7 @@ public class FCMService extends FirebaseMessagingService {
     @Override
     public void onNewToken(String token) {
         super.onNewToken(token);
-        Log.d(TAG, "New FCM token: " + token);
+        Log.d(TAG, "New FCM token generated: " + token);
 
         SharedPreferences prefs = getSharedPreferences(PREFS_FCM, Context.MODE_PRIVATE);
         prefs.edit().putString(KEY_FCM_TOKEN, token).apply();
@@ -66,13 +88,21 @@ public class FCMService extends FirebaseMessagingService {
 
         // Extract data payload for deep linking
         Map<String, String> data = remoteMessage.getData();
-        String roomCode = data.getOrDefault("roomCode", "");
-        String type = data.getOrDefault("type", "general");
+        if (data != null && !data.isEmpty()) {
+            if (data.containsKey("title") && data.get("title") != null && !data.get("title").isEmpty()) {
+                title = data.get("title");
+            }
+            if (data.containsKey("body") && data.get("body") != null && !data.get("body").isEmpty()) {
+                body = data.get("body");
+            }
+        }
 
-        // Choose icon based on notification type
+        String roomCode = (data != null && data.containsKey("roomCode")) ? data.get("roomCode") : "";
+        String type = (data != null && data.containsKey("type")) ? data.get("type") : "general";
+
         int iconRes = R.drawable.ic_notification;
 
-        // Build the intent to open the app
+        // Build intent to open app with room and tab info
         Intent intent = new Intent(this, MainActivity.class);
         intent.setAction(Intent.ACTION_VIEW);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
@@ -85,6 +115,9 @@ public class FCMService extends FirebaseMessagingService {
                 intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
+
+        // Ensure channel exists before posting
+        createNotificationChannel(this);
 
         // Build and show the notification
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
@@ -102,7 +135,6 @@ public class FCMService extends FirebaseMessagingService {
                 (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
 
         if (notificationManager != null) {
-            // Use unique ID per type so different notification types don't overwrite each other
             int notificationId = type.hashCode();
             notificationManager.notify(notificationId, builder.build());
         }
@@ -112,7 +144,8 @@ public class FCMService extends FirebaseMessagingService {
      * Maps notification type to the app tab to open.
      */
     private String getTabForType(String type) {
-        switch (type) {
+        if (type == null) return "canvas";
+        switch (type.toLowerCase()) {
             case "music":
                 return "music";
             case "note":
@@ -120,27 +153,6 @@ public class FCMService extends FirebaseMessagingService {
             case "drawing":
             default:
                 return "canvas";
-        }
-    }
-
-    /**
-     * Creates the notification channel required for Android 8.0+ (Oreo).
-     */
-    private void createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(
-                    CHANNEL_ID,
-                    "Partner Notifications",
-                    NotificationManager.IMPORTANCE_HIGH
-            );
-            channel.setDescription("Notifications from your partner — music, drawings, and whisper notes");
-            channel.enableVibration(true);
-            channel.setShowBadge(true);
-
-            NotificationManager notificationManager = getSystemService(NotificationManager.class);
-            if (notificationManager != null) {
-                notificationManager.createNotificationChannel(channel);
-            }
         }
     }
 }

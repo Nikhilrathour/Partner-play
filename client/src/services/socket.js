@@ -183,36 +183,64 @@ export function measureLatency(callback) {
 
 // FCM Push Notification token registration
 // Reads the device FCM token from the native Capacitor bridge and registers it with the server
-export async function registerFCMToken(roomCode, userId, userName) {
+export async function registerFCMToken(roomCode, userId, userName, retryCount = 0) {
   if (typeof window === 'undefined' || !window.Capacitor?.isNativePlatform?.()) {
     return; // Only works on Android APK, not in browser
   }
 
+  const cleanRoomCode = (roomCode || '').trim().toUpperCase();
+  if (!cleanRoomCode || !userId) return;
+
   try {
     // Request notification permission first (Android 13+)
     if (window.Capacitor?.Plugins?.WidgetBridge?.requestNotificationPermission) {
-      await window.Capacitor.Plugins.WidgetBridge.requestNotificationPermission();
+      try {
+        await window.Capacitor.Plugins.WidgetBridge.requestNotificationPermission();
+      } catch (permErr) {
+        console.warn('[FCM] Notification permission request error:', permErr);
+      }
     }
 
-    // Get the FCM token from the native layer
+    // Get the FCM token from the native layer (or SharedPreferences)
     const result = await window.Capacitor.Plugins.WidgetBridge.getFCMToken();
     const token = result?.token;
-    if (!token) return;
+
+    if (!token) {
+      // Firebase might still be initializing on cold start. Retry up to 3 times
+      if (retryCount < 3) {
+        const delays = [1500, 3500, 7000];
+        const delay = delays[retryCount] || 5000;
+        console.log(`[FCM] Token not ready yet, retrying in ${delay}ms (attempt ${retryCount + 1}/3)...`);
+        setTimeout(() => {
+          registerFCMToken(cleanRoomCode, userId, userName, retryCount + 1);
+        }, delay);
+      }
+      return;
+    }
+
+    console.log(`[FCM] Registering device token for room ${cleanRoomCode}...`);
+    localStorage.setItem('nikhana_fcm_token', token);
 
     // Register via socket (primary)
     if (socket.connected) {
-      socket.emit('fcm:register', { token, userId });
+      socket.emit('fcm:register', { token, userId, roomCode: cleanRoomCode });
     }
 
-    // Also register via REST (fallback, ensures token is saved even if socket drops)
-    fetch(`${getServerUrl()}/api/room/${roomCode}/fcm/register`, {
+    // Also register via REST (fallback, ensures token is saved on server even if socket drops)
+    fetch(`${getServerUrl()}/api/room/${cleanRoomCode}/fcm/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId, token, userName }),
-    }).catch(() => {});
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        console.log('[FCM REST] Registration successful:', data);
+      })
+      .catch((err) => {
+        console.warn('[FCM REST] Registration warning:', err.message);
+      });
 
   } catch (err) {
-    // Silent fail — FCM is a nice-to-have, not critical
-    console.log('[FCM] Token registration skipped:', err.message || err);
+    console.warn('[FCM] Token registration skipped:', err.message || err);
   }
 }

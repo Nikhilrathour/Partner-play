@@ -16,25 +16,63 @@ process.on('unhandledRejection', (reason, promise) => {
 
 // Firebase Admin SDK initialization for FCM push notifications
 let fcmEnabled = false;
+let fcmInitError = null;
+
 try {
-  const serviceAccountEnv = process.env.FIREBASE_SERVICE_ACCOUNT;
-  if (serviceAccountEnv) {
-    let serviceAccount;
-    // Support both file path and inline JSON string
-    if (serviceAccountEnv.trim().startsWith('{')) {
-      serviceAccount = JSON.parse(serviceAccountEnv);
-    } else {
-      serviceAccount = JSON.parse(fs.readFileSync(serviceAccountEnv, 'utf8'));
+  let serviceAccountRaw = process.env.FIREBASE_SERVICE_ACCOUNT || process.env.FIREBASE_SERVICE_ACCOUNT_BASE64;
+
+  // Fallback: check if local JSON file exists in server directory or client/android/app
+  if (!serviceAccountRaw) {
+    const localKeyFiles = [
+      path.join(__dirname, 'firebase-service-account.json'),
+      path.join(__dirname, '..', 'client', 'android', 'app', 'nikhana-play-firebase-adminsdk-fbsvc-7b60bffd83.json'),
+    ];
+    for (const p of localKeyFiles) {
+      if (fs.existsSync(p)) {
+        try {
+          serviceAccountRaw = fs.readFileSync(p, 'utf8');
+          console.log(`[FCM] Loaded service account from local file: ${p}`);
+          break;
+        } catch (e) {
+          console.error(`[FCM] Error reading local key file ${p}:`, e.message);
+        }
+      }
     }
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
-    });
-    fcmEnabled = true;
-    console.log('[FCM] Firebase Admin initialized — push notifications enabled');
+  }
+
+  if (serviceAccountRaw) {
+    let serviceAccount;
+    const trimmed = serviceAccountRaw.trim();
+    if (trimmed.startsWith('{')) {
+      serviceAccount = JSON.parse(trimmed);
+    } else if (trimmed.startsWith('ey')) {
+      // Base64 encoded JSON
+      const decoded = Buffer.from(trimmed, 'base64').toString('utf8');
+      serviceAccount = JSON.parse(decoded);
+    } else if (fs.existsSync(trimmed)) {
+      serviceAccount = JSON.parse(fs.readFileSync(trimmed, 'utf8'));
+    } else {
+      throw new Error('FIREBASE_SERVICE_ACCOUNT does not appear to be valid JSON, Base64, or file path');
+    }
+
+    if (serviceAccount && serviceAccount.private_key) {
+      // Auto-repair escaped newlines (common issue when pasting private key into web dashboards)
+      serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+      });
+      fcmEnabled = true;
+      console.log(`[FCM] Firebase Admin initialized — push notifications enabled for project: ${serviceAccount.project_id}`);
+    } else {
+      throw new Error('Parsed service account missing private_key field');
+    }
   } else {
-    console.log('[FCM] No FIREBASE_SERVICE_ACCOUNT env var — push notifications disabled');
+    fcmInitError = 'No FIREBASE_SERVICE_ACCOUNT environment variable or local key file found';
+    console.log('[FCM] ' + fcmInitError);
   }
 } catch (err) {
+  fcmInitError = err.message;
   console.error('[FCM] Failed to initialize Firebase Admin:', err.message);
 }
 
@@ -99,67 +137,92 @@ const DRAWING_NOTIFICATION_THROTTLE_MS = 30000;
 
 // Send FCM notification to offline partners in a room
 async function sendFCMToOfflinePartners(roomCode, senderUserId, notification, data = {}) {
-  if (!fcmEnabled) return;
-  const room = rooms.get(roomCode);
-  if (!room) return;
+  if (!fcmEnabled) {
+    console.log(`[FCM] Notification skipped ("${notification?.title}") — FCM not enabled`);
+    return;
+  }
+  if (!roomCode) return;
+  const normCode = roomCode.trim().toUpperCase();
+  const room = rooms.get(normCode);
 
-  // Find partners who have FCM tokens but are NOT currently connected via socket
+  // Find all socket IDs currently connected to this room
   const connectedSocketIds = new Set();
-  const ioRoom = io.sockets.adapter.rooms.get(roomCode);
+  const ioRoom = io.sockets.adapter.rooms.get(normCode);
   if (ioRoom) {
     ioRoom.forEach((sid) => connectedSocketIds.add(sid));
   }
 
-  const tokensToNotify = [];
-  for (const member of room.members) {
-    // Skip the sender
-    if (member.id === senderUserId) continue;
-    // Skip members with active socket connections
-    if (member.socketId && connectedSocketIds.has(member.socketId)) continue;
-    // Find their FCM token
-    const tokenEntry = fcmTokens.get(member.id);
-    if (tokenEntry && tokenEntry.token) {
-      tokensToNotify.push(tokenEntry.token);
+  // Find user IDs of currently connected members
+  const connectedUserIds = new Set();
+  if (room && room.members) {
+    for (const member of room.members) {
+      if (member.socketId && connectedSocketIds.has(member.socketId)) {
+        connectedUserIds.add(member.id);
+      }
     }
   }
 
-  if (tokensToNotify.length === 0) return;
+  // Find all registered FCM tokens for this room whose users are NOT actively connected
+  const targets = [];
+  for (const [uid, entry] of fcmTokens.entries()) {
+    if (entry.roomCode === normCode) {
+      // Skip the sender
+      if (uid === senderUserId) continue;
+      // Skip users who currently have an active socket in the room
+      if (connectedUserIds.has(uid)) continue;
 
-  for (const token of tokensToNotify) {
+      targets.push({ userId: uid, token: entry.token, userName: entry.userName });
+    }
+  }
+
+  if (targets.length === 0) {
+    console.log(`[FCM] No offline partners to notify in room ${normCode}`);
+    return;
+  }
+
+  console.log(`[FCM] Sending push notification to ${targets.length} offline partner(s) in room ${normCode}: "${notification.title}"`);
+
+  // Convert all data values to strings for FCM data payload
+  const stringData = {
+    roomCode: normCode,
+    type: data.type || 'general',
+    title: notification.title || '',
+    body: notification.body || '',
+  };
+  for (const [k, v] of Object.entries(data)) {
+    if (v !== undefined && v !== null) {
+      stringData[k] = String(v);
+    }
+  }
+
+  for (const target of targets) {
     try {
-      await admin.messaging().send({
-        token,
+      const response = await admin.messaging().send({
+        token: target.token,
         notification: {
           title: notification.title,
           body: notification.body,
         },
-        data: {
-          roomCode,
-          type: data.type || 'general',
-          ...data,
-        },
+        data: stringData,
         android: {
           priority: 'high',
           notification: {
             channelId: 'partner_play_channel',
             icon: 'ic_notification',
             color: '#ff5722',
-            clickAction: 'FLUTTER_NOTIFICATION_CLICK',
+            defaultSound: true,
+            defaultVibrateTimings: true,
           },
         },
       });
+      console.log(`[FCM] Delivered notification to user ${target.userId} (${response})`);
     } catch (err) {
       if (err.code === 'messaging/registration-token-not-registered' ||
           err.code === 'messaging/invalid-registration-token') {
-        // Token is stale, remove it
-        for (const [userId, entry] of fcmTokens.entries()) {
-          if (entry.token === token) {
-            fcmTokens.delete(userId);
-            break;
-          }
-        }
+        console.log(`[FCM] Removing stale/invalid token for user ${target.userId}`);
+        fcmTokens.delete(target.userId);
       } else {
-        console.error('[FCM] Send error:', err.code || err.message);
+        console.error(`[FCM] Send error for user ${target.userId}:`, err.code || err.message);
       }
     }
   }
@@ -192,11 +255,14 @@ app.get('/health', (req, res) => {
     status: 'ok',
     activeRooms: rooms.size,
     roomCodes: Array.from(rooms.keys()),
+    fcmEnabled,
+    fcmTokensCount: fcmTokens.size,
+    fcmInitError: fcmInitError || null,
     timestamp: Date.now(),
   });
 });
 
-// REST debug endpoint: shows live state of all rooms
+// REST debug endpoint: shows live state of all rooms & FCM status
 app.get('/api/debug', (req, res) => {
   const result = {};
   for (const [code, r] of rooms.entries()) {
@@ -208,7 +274,134 @@ app.get('/api/debug', (req, res) => {
       notesCount: r.notes.length,
     };
   }
-  res.json({ activeRooms: rooms.size, rooms: result });
+  res.json({
+    activeRooms: rooms.size,
+    rooms: result,
+    fcm: {
+      enabled: fcmEnabled,
+      tokensCount: fcmTokens.size,
+      initError: fcmInitError,
+    },
+  });
+});
+
+// REST FCM status endpoint
+app.get('/api/fcm/status', (req, res) => {
+  const registered = [];
+  for (const [userId, entry] of fcmTokens.entries()) {
+    registered.push({
+      userId,
+      roomCode: entry.roomCode,
+      userName: entry.userName,
+      tokenSnippet: entry.token ? (entry.token.substring(0, 15) + '...') : null,
+    });
+  }
+  res.json({
+    fcmEnabled,
+    fcmInitError,
+    totalTokens: fcmTokens.size,
+    registeredUsers: registered,
+  });
+});
+
+// REST FCM test endpoint: easily test push notifications to a room or direct token
+app.post('/api/fcm/test', async (req, res) => {
+  const { roomCode, title, body, token } = req.body;
+
+  if (!fcmEnabled) {
+    return res.status(503).json({
+      success: false,
+      error: 'FCM is not enabled on this server.',
+      details: fcmInitError || 'FIREBASE_SERVICE_ACCOUNT environment variable is missing on Railway.',
+    });
+  }
+
+  // Direct token test if provided
+  if (token) {
+    try {
+      const response = await admin.messaging().send({
+        token,
+        notification: {
+          title: title || '❤️ Nikhana Play Test',
+          body: body || 'FCM push notification is working perfectly!',
+        },
+        data: {
+          roomCode: roomCode || '',
+          type: 'general',
+        },
+        android: {
+          priority: 'high',
+          notification: {
+            channelId: 'partner_play_channel',
+            icon: 'ic_notification',
+            color: '#ff5722',
+            defaultSound: true,
+            defaultVibrateTimings: true,
+          },
+        },
+      });
+      return res.json({ success: true, mode: 'direct_token', response });
+    } catch (err) {
+      return res.status(500).json({ success: false, mode: 'direct_token', error: err.message, code: err.code });
+    }
+  }
+
+  // Room broadcast test
+  const normCode = (roomCode || '').trim().toUpperCase();
+  if (!normCode) {
+    return res.status(400).json({ error: 'roomCode or token is required' });
+  }
+
+  const targets = [];
+  for (const [userId, entry] of fcmTokens.entries()) {
+    if (entry.roomCode === normCode) {
+      targets.push({ userId, token: entry.token });
+    }
+  }
+
+  if (targets.length === 0) {
+    return res.json({
+      success: false,
+      message: `No FCM tokens registered for room ${normCode}. Open the Android APK and join this room first.`,
+      registeredRooms: Array.from(new Set(Array.from(fcmTokens.values()).map(e => e.roomCode))),
+    });
+  }
+
+  const results = [];
+  for (const item of targets) {
+    try {
+      const resp = await admin.messaging().send({
+        token: item.token,
+        notification: {
+          title: title || '❤️ Nikhana Play Test',
+          body: body || `Push notifications are working in room ${normCode}!`,
+        },
+        data: {
+          roomCode: normCode,
+          type: 'general',
+        },
+        android: {
+          priority: 'high',
+          notification: {
+            channelId: 'partner_play_channel',
+            icon: 'ic_notification',
+            color: '#ff5722',
+            defaultSound: true,
+            defaultVibrateTimings: true,
+          },
+        },
+      });
+      results.push({ userId: item.userId, success: true, response: resp });
+    } catch (err) {
+      results.push({ userId: item.userId, success: false, error: err.message, code: err.code });
+    }
+  }
+
+  return res.json({
+    success: results.some(r => r.success),
+    roomCode: normCode,
+    results,
+  });
 });
 
 app.get('/api/room/:code', (req, res) => {
@@ -657,15 +850,16 @@ io.on('connection', (socket) => {
   });
 
   // FCM token registration: client sends its Firebase Cloud Messaging token
-  socket.on('fcm:register', ({ token, userId: tokenUserId }) => {
+  socket.on('fcm:register', ({ token, userId: tokenUserId, roomCode: payloadRoomCode }) => {
     const uid = tokenUserId || currentUser?.id;
-    if (!uid || !token) return;
+    const targetRoom = (payloadRoomCode || currentRoomCode || '').trim().toUpperCase();
+    if (!uid || !token || !targetRoom) return;
     fcmTokens.set(uid, {
       token,
-      roomCode: currentRoomCode,
+      roomCode: targetRoom,
       userName: currentUser?.name || 'Partner',
     });
-    console.log(`[FCM] Token registered for user ${uid} in room ${currentRoomCode}`);
+    console.log(`[FCM Socket] Token registered for user ${uid} in room ${targetRoom}`);
   });
 
   // Canvas: Stroke stream (batch or individual)
