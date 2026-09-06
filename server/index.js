@@ -952,28 +952,35 @@ io.on('connection', (socket) => {
     const { action, track, currentTime } = data;
 
     // Update room audio state
-    if (track) {
+    if (action === 'change_track' && track) {
+      // Full replacement — new track identity completely replaces the old one
       room.currentTrack = {
-        ...room.currentTrack,
         ...track,
+        isPlaying: true,
+        currentTime: 0,
+        lastUpdated: now,
       };
-    }
+    } else {
+      // For play/pause/seek/update_metadata — merge track metadata without changing identity
+      if (track) {
+        room.currentTrack = {
+          ...room.currentTrack,
+          ...track,
+        };
+      }
 
-    if (action === 'play') {
-      room.currentTrack.isPlaying = true;
-      room.currentTrack.currentTime = typeof currentTime === 'number' ? currentTime : room.currentTrack.currentTime;
-      room.currentTrack.lastUpdated = now;
-    } else if (action === 'pause') {
-      room.currentTrack.isPlaying = false;
-      room.currentTrack.currentTime = typeof currentTime === 'number' ? currentTime : room.currentTrack.currentTime;
-      room.currentTrack.lastUpdated = now;
-    } else if (action === 'seek') {
-      room.currentTrack.currentTime = currentTime;
-      room.currentTrack.lastUpdated = now;
-    } else if (action === 'change_track') {
-      room.currentTrack.isPlaying = true;
-      room.currentTrack.currentTime = 0;
-      room.currentTrack.lastUpdated = now;
+      if (action === 'play') {
+        room.currentTrack.isPlaying = true;
+        room.currentTrack.currentTime = typeof currentTime === 'number' ? currentTime : room.currentTrack.currentTime;
+        room.currentTrack.lastUpdated = now;
+      } else if (action === 'pause') {
+        room.currentTrack.isPlaying = false;
+        room.currentTrack.currentTime = typeof currentTime === 'number' ? currentTime : room.currentTrack.currentTime;
+        room.currentTrack.lastUpdated = now;
+      } else if (action === 'seek') {
+        room.currentTrack.currentTime = currentTime;
+        room.currentTrack.lastUpdated = now;
+      }
     }
 
     // Broadcast sync event to partner with server timestamp

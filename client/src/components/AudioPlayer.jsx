@@ -360,19 +360,47 @@ export default function AudioPlayer({
 
   // Screen-off & Visibility change listener: keep audio pipeline and YouTube alive
   useEffect(() => {
+    let bgKeepAliveInterval = null;
+
+    const tryResumeYT = () => {
+      if (ytPlayerRef.current && isPlayingRef.current && ytPlayerRef.current.playVideo) {
+        ytPlayerRef.current.playVideo();
+      }
+    };
+
     const handleVisibilityChange = () => {
-      if (document.hidden && isPlaying) {
+      if (document.hidden && isPlayingRef.current) {
         // Keep silent audio anchor active so Android audio hardware doesn't sleep
         if (htmlAudioRef.current) {
+          htmlAudioRef.current.src = SILENT_AUDIO;
+          htmlAudioRef.current.loop = true;
           htmlAudioRef.current.play().catch(() => {});
         }
-        // Keep YouTube playing if active
-        if (currentTrack.source === 'youtube' && ytPlayerRef.current) {
-          setTimeout(() => {
-            if (ytPlayerRef.current && isPlaying && ytPlayerRef.current.playVideo) {
-              ytPlayerRef.current.playVideo();
+        // Keep YouTube playing if active — retry multiple times because Android
+        // may pause the WebView at various points after screen-off
+        if (currentTrackRef.current?.source === 'youtube') {
+          setTimeout(tryResumeYT, 200);
+          setTimeout(tryResumeYT, 1000);
+          setTimeout(tryResumeYT, 3000);
+          // Poll every 5 seconds to catch late suspensions
+          bgKeepAliveInterval = setInterval(() => {
+            if (!isPlayingRef.current || !document.hidden) {
+              clearInterval(bgKeepAliveInterval);
+              bgKeepAliveInterval = null;
+              return;
             }
-          }, 200);
+            tryResumeYT();
+            // Re-poke silent audio
+            if (htmlAudioRef.current) {
+              htmlAudioRef.current.play().catch(() => {});
+            }
+          }, 5000);
+        }
+      } else if (!document.hidden) {
+        // Coming back to foreground — clear the background polling
+        if (bgKeepAliveInterval) {
+          clearInterval(bgKeepAliveInterval);
+          bgKeepAliveInterval = null;
         }
       }
     };
@@ -380,8 +408,11 @@ export default function AudioPlayer({
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (bgKeepAliveInterval) {
+        clearInterval(bgKeepAliveInterval);
+      }
     };
-  }, [isPlaying, currentTrack]);
+  }, []); // Use refs so no dependency on state
 
   // Sync listener from Socket.io
   useEffect(() => {
@@ -425,6 +456,7 @@ export default function AudioPlayer({
 
       if (action === 'play') {
         setIsPlaying(true);
+        isPlayingRef.current = true;
         if (activeSource === 'youtube') {
           if (ytPlayerRef.current && ytPlayerRef.current.playVideo) {
             const currentYT = ytPlayerRef.current.getCurrentTime ? ytPlayerRef.current.getCurrentTime() : 0;
@@ -451,6 +483,7 @@ export default function AudioPlayer({
         }
       } else if (action === 'pause') {
         setIsPlaying(false);
+        isPlayingRef.current = false;
         if (activeSource === 'youtube' && ytPlayerRef.current) {
           if (ytPlayerRef.current.pauseVideo) {
             ytPlayerRef.current.pauseVideo();
@@ -478,16 +511,25 @@ export default function AudioPlayer({
         }
       } else if (action === 'change_track') {
         setIsPlaying(true);
+        isPlayingRef.current = true;
         setCurrentTime(0);
+        if (track) {
+          currentTrackRef.current = track;
+        }
         if (track.source === 'youtube') {
           setShowVideoEmbed(true);
-          if (htmlAudioRef.current) htmlAudioRef.current.pause();
           const vId = track.videoId || track.id;
           if (ytPlayerRef.current && ytPlayerRef.current.loadVideoById) {
             ytPlayerRef.current.loadVideoById(vId);
             ytPlayerRef.current.playVideo();
           } else {
             pendingTrackRef.current = track;
+          }
+          // Start silent audio anchor for background keep-alive
+          if (htmlAudioRef.current) {
+            htmlAudioRef.current.src = SILENT_AUDIO;
+            htmlAudioRef.current.loop = true;
+            htmlAudioRef.current.play().catch(() => {});
           }
         } else if (htmlAudioRef.current) {
           setShowVideoEmbed(false);
