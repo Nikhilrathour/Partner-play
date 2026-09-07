@@ -6,6 +6,7 @@ const admin = require('firebase-admin');
 
 const fs = require('fs');
 const path = require('path');
+const { searchYouTube } = require('./services/youtubeSearch');
 
 process.on('uncaughtException', (err) => {
   console.error('[Uncaught Exception]', err);
@@ -789,6 +790,22 @@ app.post('/api/voice/upload', (req, res) => {
   } catch (err) {
     console.error('Voice whisper upload failed:', err);
     return res.status(500).json({ error: 'Failed to process voice upload' });
+  }
+});
+
+// Endpoint for searching YouTube music directly
+app.get('/api/youtube/search', async (req, res) => {
+  const query = (req.query.q || '').trim();
+  if (!query) {
+    return res.json({ results: [] });
+  }
+
+  try {
+    const results = await searchYouTube(query);
+    return res.json({ results: results.slice(0, 15) });
+  } catch (err) {
+    console.error('[YouTube Search Failed]', err);
+    return res.status(500).json({ error: 'Failed to search YouTube', results: [] });
   }
 });
 

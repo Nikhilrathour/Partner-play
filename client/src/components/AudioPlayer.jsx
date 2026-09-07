@@ -30,7 +30,12 @@ import {
   Repeat,
   Repeat1,
   SkipBack,
-  SkipForward
+  SkipForward,
+  Search,
+  Loader2,
+  X,
+  ListPlus,
+  Check
 } from 'lucide-react';
 import { 
   saveLocalTrackToDB, 
@@ -39,6 +44,15 @@ import {
 } from '../services/localAudioDb';
 
 const SILENT_AUDIO = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+
+export const QUICK_SEARCH_CHIPS = [
+  '❤️ Romantic Hits',
+  '🌙 Midnight Lofi',
+  '✨ Arijit Singh',
+  '🎸 Ed Sheeran',
+  '☕ Acoustic Love',
+  '🔥 Trending Hits',
+];
 
 export const DEFAULT_TRACK = {
   id: 'blue',
@@ -345,8 +359,15 @@ export default function AudioPlayer({
     repeatModeRef.current = repeatMode;
   }, [repeatMode]);
 
+  // Direct YouTube Search & Queue state
+  const [customYoutubeTracks, setCustomYoutubeTracks] = useState([]);
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [addedTrackIds, setAddedTrackIds] = useState(new Set());
+
   const fullPlaylist = [
     ...PRESET_TRACKS,
+    ...customYoutubeTracks,
     ...localTracks.map((lt) => ({
       ...lt,
       url: activeBlobUrlsRef.current.get(lt.id) || lt.url,
@@ -1094,63 +1115,113 @@ export default function AudioPlayer({
     }, 500);
   };
 
-  const handleCustomYoutubeSubmit = (e) => {
-    e.preventDefault();
+  const handlePerformSearch = async (rawQuery) => {
+    const q = (rawQuery !== undefined ? rawQuery : customYoutubeUrl).trim();
+    if (!q) {
+      setYoutubeError('Please enter a song name or YouTube link.');
+      setTimeout(() => setYoutubeError(''), 3500);
+      return;
+    }
+
     setYoutubeError('');
-    const trimmedUrl = (customYoutubeUrl || '').trim();
-    if (!trimmedUrl) {
-      setYoutubeError('Please enter a YouTube link or video ID.');
+
+    // 1. If direct YouTube link or 11-char video ID, play immediately
+    const videoId = extractYouTubeId(q);
+    if (videoId) {
+      const newTrack = {
+        id: videoId,
+        videoId,
+        title: 'YouTube Stream',
+        artist: user?.name ? `Requested by ${user.name}` : 'Shared Video',
+        genre: 'YouTube',
+        icon: 'headphones',
+        color: 'bg-rose-50 text-rose-600 border-rose-200',
+        source: 'youtube',
+        duration: 0,
+      };
+
+      setCustomYoutubeTracks((prev) => {
+        if (prev.some((t) => t.id === videoId)) return prev;
+        return [newTrack, ...prev];
+      });
+
+      handleSelectTrack(newTrack);
+      setCustomYoutubeUrl('');
+      setSearchResults([]);
+      setShowVideoEmbed(true);
+
+      // Asynchronously fetch video title and author from YouTube oEmbed
+      fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`)
+        .then((res) => res.json())
+        .then((meta) => {
+          if (meta && meta.title) {
+            const updatedTrack = {
+              ...newTrack,
+              title: meta.title,
+              artist: meta.author_name || 'YouTube',
+            };
+            setCurrentTrack((prev) => (prev.id === videoId ? updatedTrack : prev));
+            setCustomYoutubeTracks((prev) =>
+              prev.map((t) => (t.id === videoId ? updatedTrack : t))
+            );
+            socket.emit('audio:sync', {
+              action: 'update_metadata',
+              track: updatedTrack,
+              currentTime: ytPlayerRef.current?.getCurrentTime ? ytPlayerRef.current.getCurrentTime() : 0,
+              sentAt: Date.now(),
+              initiatedBy: user?.name,
+            });
+          }
+        })
+        .catch(() => {});
+      return;
+    }
+
+    // 2. In-App YouTube Search via backend
+    setIsSearching(true);
+    setSearchResults([]);
+    try {
+      const res = await fetch(`/api/youtube/search?q=${encodeURIComponent(q)}`);
+      const data = await res.json();
+      if (data.results && data.results.length > 0) {
+        setSearchResults(data.results);
+      } else {
+        setSearchResults([]);
+        setYoutubeError('No songs found on YouTube for that search.');
+        setTimeout(() => setYoutubeError(''), 4000);
+      }
+    } catch (err) {
+      console.error('YouTube search failed:', err);
+      setYoutubeError('Failed to search YouTube. Check server connection.');
       setTimeout(() => setYoutubeError(''), 4000);
-      return;
+    } finally {
+      setIsSearching(false);
     }
+  };
 
-    const videoId = extractYouTubeId(trimmedUrl);
-    if (!videoId) {
-      setYoutubeError('Could not recognize YouTube URL or ID. Try a link like https://youtube.com/watch?v=... or https://youtu.be/...');
-      setTimeout(() => setYoutubeError(''), 5000);
-      return;
-    }
+  const handlePlaySearchResult = (track) => {
+    playPop();
+    setCustomYoutubeTracks((prev) => {
+      if (prev.some((t) => t.id === track.id)) return prev;
+      return [track, ...prev];
+    });
+    handleSelectTrack(track);
+  };
 
-    const newTrack = {
-      id: videoId,
-      videoId,
-      title: 'YouTube Stream',
-      artist: user?.name ? `Requested by ${user.name}` : 'Shared Video',
-      genre: 'YouTube',
-      icon: 'headphones',
-      color: 'bg-rose-50 text-rose-600 border-rose-200',
-      source: 'youtube',
-      duration: 0,
-    };
-
-    handleSelectTrack(newTrack);
-    setCustomYoutubeUrl('');
-    setShowVideoEmbed(true);
-
-    // Fetch rich video title & artist asynchronously from YouTube oEmbed
-    fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`)
-      .then((res) => {
-        if (!res.ok) throw new Error('oEmbed error');
-        return res.json();
-      })
-      .then((meta) => {
-        if (meta && meta.title) {
-          const updatedTrack = {
-            ...newTrack,
-            title: meta.title,
-            artist: meta.author_name || 'YouTube',
-          };
-          setCurrentTrack((prev) => (prev.id === videoId ? updatedTrack : prev));
-          socket.emit('audio:sync', {
-            action: 'update_metadata',
-            track: updatedTrack,
-            currentTime: ytPlayerRef.current?.getCurrentTime ? ytPlayerRef.current.getCurrentTime() : 0,
-            sentAt: Date.now(),
-            initiatedBy: user?.name,
-          });
-        }
-      })
-      .catch(() => {});
+  const handleQueueSearchResult = (track) => {
+    playPop();
+    setCustomYoutubeTracks((prev) => {
+      if (prev.some((t) => t.id === track.id)) return prev;
+      return [...prev, track];
+    });
+    setAddedTrackIds((prev) => new Set(prev).add(track.id));
+    setTimeout(() => {
+      setAddedTrackIds((prev) => {
+        const next = new Set(prev);
+        next.delete(track.id);
+        return next;
+      });
+    }, 2000);
   };
 
   const handleVolumeChange = (e) => {
@@ -1678,37 +1749,194 @@ export default function AudioPlayer({
           </div>
         </div>
 
-        {/* Custom YouTube Stream Input Card (Matches Persona Fleet Search / New Persona style) */}
+        {/* Direct YouTube Search & Stream Card */}
         <div className="flex-shrink-0 w-full rounded-2xl sm:rounded-3xl studio-card p-4 sm:p-5 shadow-sm box-border">
           <div className="flex items-center justify-between mb-2.5">
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 rounded-lg bg-orange-50 border border-orange-200 flex items-center justify-center text-[#ff5722]">
                 <Youtube className="w-3.5 h-3.5" />
               </div>
-              <h4 className="text-xs font-bold text-zinc-900">Stream Any Song from YouTube</h4>
+              <h4 className="text-xs font-bold text-zinc-900">Search YouTube Music</h4>
             </div>
-            <span className="text-[10px] text-zinc-400 font-medium">Synced Video & Audio</span>
+            <span className="text-[10px] text-zinc-400 font-medium">Synced with Partner</span>
           </div>
-          <form onSubmit={handleCustomYoutubeSubmit} className="flex gap-2 w-full">
-            <input
-              type="text"
-              value={customYoutubeUrl}
-              onChange={(e) => setCustomYoutubeUrl(e.target.value)}
-              placeholder="Paste YouTube video URL or ID..."
-              className="flex-1 min-w-0 bg-[#faf8f5] text-xs px-3.5 py-2.5 rounded-xl border border-[#e2ddd5] focus:outline-none focus:border-[#ff5722] text-zinc-900 placeholder:text-zinc-400 transition-colors"
-            />
+
+          {/* Search Input Form */}
+          <form 
+            onSubmit={(e) => {
+              e.preventDefault();
+              handlePerformSearch();
+            }} 
+            className="flex gap-2 w-full"
+          >
+            <div className="relative flex-1 min-w-0">
+              <input
+                type="text"
+                value={customYoutubeUrl}
+                onChange={(e) => setCustomYoutubeUrl(e.target.value)}
+                placeholder="Search song, artist, or paste YouTube link..."
+                className="w-full bg-[#faf8f5] text-xs pl-8 pr-7 py-2.5 rounded-xl border border-[#e2ddd5] focus:outline-none focus:border-[#ff5722] text-zinc-900 placeholder:text-zinc-400 transition-colors"
+              />
+              <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              {customYoutubeUrl && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCustomYoutubeUrl('');
+                    setSearchResults([]);
+                  }}
+                  className="p-1 text-zinc-400 hover:text-zinc-600 absolute right-2 top-1/2 -translate-y-1/2"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
             <button
               type="submit"
-              className="studio-btn-primary px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 whitespace-nowrap active:scale-95 transition-transform flex-shrink-0"
+              disabled={isSearching || !customYoutubeUrl.trim()}
+              className="studio-btn-primary px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 whitespace-nowrap active:scale-95 transition-transform flex-shrink-0 disabled:opacity-50"
             >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Play for Both</span>
+              {isSearching ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Searching...</span>
+                </>
+              ) : (
+                <>
+                  <Search className="w-3.5 h-3.5" />
+                  <span>Search</span>
+                </>
+              )}
             </button>
           </form>
+
+          {/* Quick Search Chips */}
+          <div className="flex items-center gap-1.5 mt-2.5 overflow-x-auto no-scrollbar py-0.5">
+            {QUICK_SEARCH_CHIPS.map((chip) => {
+              const label = chip.replace(/^[^\w\s]+\s*/, '');
+              return (
+                <button
+                  key={chip}
+                  type="button"
+                  onClick={() => {
+                    setCustomYoutubeUrl(label);
+                    handlePerformSearch(label);
+                  }}
+                  className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-[#faf7f2] hover:bg-[#f3ede3] text-zinc-700 border border-[#e8e2d8] whitespace-nowrap transition-colors active:scale-95 flex-shrink-0"
+                >
+                  {chip}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Search Error Alert */}
           {youtubeError && (
             <div className="flex items-center gap-1.5 mt-2.5 px-3 py-1.5 rounded-xl bg-red-50 text-red-600 border border-red-200 text-xs animate-fadeIn">
               <AlertCircle className="w-3.5 h-3.5 shrink-0" />
               <span>{youtubeError}</span>
+            </div>
+          )}
+
+          {/* Search Results List */}
+          {searchResults.length > 0 && (
+            <div className="mt-3.5 pt-3.5 border-t border-[#ede8e1] space-y-2 animate-fadeIn">
+              <div className="flex items-center justify-between pb-1">
+                <span className="text-[11px] font-bold text-zinc-600 uppercase tracking-wider">
+                  Top Results ({searchResults.length})
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSearchResults([])}
+                  className="text-[11px] text-zinc-400 hover:text-zinc-700 font-semibold"
+                >
+                  Clear Results
+                </button>
+              </div>
+
+              <div className="max-h-72 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                {searchResults.map((result) => {
+                  const isCurrent = currentTrack?.id === result.id && isPlaying;
+                  const isQueued = addedTrackIds.has(result.id);
+
+                  return (
+                    <div
+                      key={result.id}
+                      className={`flex items-center justify-between gap-3 p-2 rounded-2xl border transition-all ${
+                        isCurrent
+                          ? 'bg-orange-50/70 border-orange-200'
+                          : 'bg-[#faf8f5] hover:bg-white border-[#eee9e0] hover:shadow-sm'
+                      }`}
+                    >
+                      {/* Thumbnail with duration badge */}
+                      <div className="relative w-14 h-10 rounded-lg overflow-hidden bg-zinc-200 flex-shrink-0">
+                        {result.thumbnail ? (
+                          <img
+                            src={result.thumbnail}
+                            alt={result.title}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-zinc-800 text-white">
+                            <Music className="w-4 h-4" />
+                          </div>
+                        )}
+                        {result.timestamp && (
+                          <span className="absolute bottom-0.5 right-0.5 bg-black/75 text-white text-[9px] font-bold px-1 rounded">
+                            {result.timestamp}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Song Title & Channel */}
+                      <div className="flex-1 min-w-0">
+                        <h5 className="text-xs font-semibold text-zinc-900 truncate leading-snug" title={result.title}>
+                          {result.title}
+                        </h5>
+                        <p className="text-[11px] text-zinc-500 truncate mt-0.5">
+                          {result.artist}
+                        </p>
+                      </div>
+
+                      {/* Actions: Play Now & Queue */}
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handlePlaySearchResult(result)}
+                          className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1 transition-all active:scale-95 ${
+                            isCurrent
+                              ? 'bg-[#ff5722] text-white shadow-sm'
+                              : 'bg-white hover:bg-[#ff5722] text-zinc-700 hover:text-white border border-[#e2ddd5]'
+                          }`}
+                          title="Play now for both partners"
+                        >
+                          <Play className="w-3 h-3 fill-current" />
+                          <span className="hidden sm:inline">Play</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleQueueSearchResult(result)}
+                          className={`p-1.5 rounded-xl text-xs transition-all active:scale-95 ${
+                            isQueued
+                              ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                              : 'bg-white hover:bg-zinc-100 text-zinc-600 border border-[#e2ddd5]'
+                          }`}
+                          title="Add to Playlist"
+                        >
+                          {isQueued ? (
+                            <Check className="w-3.5 h-3.5 text-emerald-600" />
+                          ) : (
+                            <ListPlus className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>
