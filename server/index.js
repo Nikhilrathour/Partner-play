@@ -761,6 +761,37 @@ app.post('/api/canvas/upload', (req, res) => {
   }
 });
 
+// Endpoint for uploading voice whispers (audio notes) to pin on canvas or notes
+app.post('/api/voice/upload', (req, res) => {
+  const { audioData, fileName, duration } = req.body;
+  if (!audioData) {
+    return res.status(400).json({ error: 'No audio data provided' });
+  }
+  try {
+    const base64Data = audioData.replace(/^data:[^;]+;base64,/, '');
+    const buffer = Buffer.from(base64Data, 'base64');
+    const ext = path.extname(fileName || '') || '.webm';
+    const safeId = `voice_${Date.now()}_${Math.random().toString(36).substring(2, 7)}${ext}`;
+    const filePath = path.join(uploadsDir, safeId);
+    fs.writeFileSync(filePath, buffer);
+
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+    const host = req.get('host');
+    const voiceUrl = `${protocol}://${host}/uploads/${safeId}`;
+
+    return res.json({
+      success: true,
+      url: voiceUrl,
+      duration: duration || 0,
+      fileName,
+      id: safeId,
+    });
+  } catch (err) {
+    console.error('Voice whisper upload failed:', err);
+    return res.status(500).json({ error: 'Failed to process voice upload' });
+  }
+});
+
 // Serve client dist static files
 const distPath = path.join(__dirname, '../client/dist');
 app.use(express.static(distPath));
@@ -959,15 +990,22 @@ io.on('connection', (socket) => {
     // Broadcast stroke immediately to partner
     socket.to(currentRoomCode).emit('canvas:stroke', strokeData);
 
-    // Send FCM to offline partners (throttled: max 1 per 30s per room)
-    const now = Date.now();
-    const lastSent = lastDrawingNotification.get(currentRoomCode) || 0;
-    if (now - lastSent > DRAWING_NOTIFICATION_THROTTLE_MS) {
-      lastDrawingNotification.set(currentRoomCode, now);
+    // Send FCM to offline partners
+    if (strokeData.type === 'voice') {
       sendFCMToOfflinePartners(currentRoomCode, currentUser?.id, {
-        title: '🎨 New Drawing!',
-        body: `${currentUser?.name || 'Your partner'} drew something new — tap to see!`,
-      }, { type: 'drawing' });
+        title: '🎙️ Voice Whisper on Board!',
+        body: `${currentUser?.name || 'Your partner'} whispered a voice note on the canvas — tap to listen!`,
+      }, { type: 'voice_whisper' });
+    } else {
+      const now = Date.now();
+      const lastSent = lastDrawingNotification.get(currentRoomCode) || 0;
+      if (now - lastSent > DRAWING_NOTIFICATION_THROTTLE_MS) {
+        lastDrawingNotification.set(currentRoomCode, now);
+        sendFCMToOfflinePartners(currentRoomCode, currentUser?.id, {
+          title: '🎨 New Drawing!',
+          body: `${currentUser?.name || 'Your partner'} drew something new — tap to see!`,
+        }, { type: 'drawing' });
+      }
     }
   });
 
@@ -1020,6 +1058,35 @@ io.on('connection', (socket) => {
       theme: room.canvasTheme,
       updatedBy: currentUser?.name || 'Partner',
     });
+  });
+
+  // Canvas: Update photo position and scale in real-time
+  socket.on('canvas:photo_update', (updateData) => {
+    if (!currentRoomCode || !updateData?.id) return;
+    const room = rooms.get(currentRoomCode);
+    if (!room) return;
+
+    const strokeIndex = room.canvasState.findIndex((s) => s.id === updateData.id);
+    if (strokeIndex !== -1) {
+      room.canvasState[strokeIndex] = {
+        ...room.canvasState[strokeIndex],
+        x: typeof updateData.x === 'number' ? updateData.x : room.canvasState[strokeIndex].x,
+        y: typeof updateData.y === 'number' ? updateData.y : room.canvasState[strokeIndex].y,
+        scale: typeof updateData.scale === 'number' ? updateData.scale : (room.canvasState[strokeIndex].scale || 1.0),
+        mode: updateData.mode || room.canvasState[strokeIndex].mode,
+      };
+      socket.to(currentRoomCode).emit('canvas:photo_update', updateData);
+    }
+  });
+
+  // Canvas: Delete specific photo
+  socket.on('canvas:photo_delete', ({ id }) => {
+    if (!currentRoomCode || !id) return;
+    const room = rooms.get(currentRoomCode);
+    if (!room) return;
+
+    room.canvasState = room.canvasState.filter((s) => s.id !== id);
+    io.in(currentRoomCode).emit('canvas:history_sync', room.canvasState);
   });
 
   // Live cursor position (normalized 0.0 - 1.0)
