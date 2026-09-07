@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { socket } from '../services/socket';
+import { socket, getServerUrl } from '../services/socket';
 import { playPop } from '../services/sound';
 import { 
   Play, 
@@ -1177,11 +1177,13 @@ export default function AudioPlayer({
       return;
     }
 
-    // 2. In-App YouTube Search via backend
+    // 2. In-App YouTube Search via backend (using live server URL with automatic Socket.io fallback)
     setIsSearching(true);
     setSearchResults([]);
     try {
-      const res = await fetch(`/api/youtube/search?q=${encodeURIComponent(q)}`);
+      const serverBase = getServerUrl();
+      const res = await fetch(`${serverBase}/api/youtube/search?q=${encodeURIComponent(q)}`);
+      if (!res.ok) throw new Error(`HTTP error ${res.status}`);
       const data = await res.json();
       if (data.results && data.results.length > 0) {
         setSearchResults(data.results);
@@ -1190,12 +1192,27 @@ export default function AudioPlayer({
         setYoutubeError('No songs found on YouTube for that search.');
         setTimeout(() => setYoutubeError(''), 4000);
       }
+      setIsSearching(false);
     } catch (err) {
+      console.warn('HTTP YouTube search failed, attempting real-time socket search fallback:', err);
+      // Dual-layer fallback: Socket.io search
+      if (socket && socket.connected) {
+        socket.timeout(7000).emit('youtube:search', { query: q }, (err, res) => {
+          setIsSearching(false);
+          if (!err && res?.success && res.results?.length > 0) {
+            setSearchResults(res.results);
+          } else {
+            setSearchResults([]);
+            setYoutubeError('No songs found on YouTube for that search.');
+            setTimeout(() => setYoutubeError(''), 4000);
+          }
+        });
+        return;
+      }
+      setIsSearching(false);
       console.error('YouTube search failed:', err);
       setYoutubeError('Failed to search YouTube. Check server connection.');
       setTimeout(() => setYoutubeError(''), 4000);
-    } finally {
-      setIsSearching(false);
     }
   };
 
@@ -1298,7 +1315,7 @@ export default function AudioPlayer({
       const reader = new FileReader();
       reader.onload = async () => {
         try {
-          const res = await fetch('/api/audio/upload', {
+          const res = await fetch(`${getServerUrl()}/api/audio/upload`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1360,7 +1377,7 @@ export default function AudioPlayer({
       const reader = new FileReader();
       reader.onload = async () => {
         try {
-          const res = await fetch('/api/audio/upload', {
+          const res = await fetch(`${getServerUrl()}/api/audio/upload`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

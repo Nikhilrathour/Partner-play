@@ -1230,6 +1230,20 @@ io.on('connection', (socket) => {
     });
   });
 
+  // Direct YouTube search over Socket.io
+  socket.on('youtube:search', async ({ query }, callback) => {
+    try {
+      const results = await searchYouTube(query);
+      if (typeof callback === 'function') {
+        callback(null, { success: true, results: results.slice(0, 15) });
+      }
+    } catch (err) {
+      if (typeof callback === 'function') {
+        callback(null, { success: false, error: err.message, results: [] });
+      }
+    }
+  });
+
   // Shared whisper notes
   socket.on('note:add', ({ text, color, x, y }) => {
     if (!currentRoomCode) return;

@@ -184,6 +184,7 @@ export default function CanvasBoard({ room, user, isActive = true }) {
   const [recordedAudioBlob, setRecordedAudioBlob] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [isPlayingPreview, setIsPlayingPreview] = useState(false);
+  const [micPermissionDenied, setMicPermissionDenied] = useState(false);
   const previewPlayerRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
@@ -1182,8 +1183,32 @@ export default function CanvasBoard({ room, user, isActive = true }) {
   };
 
   // --- Voice Whispers Recording Engine ---
+  const handleOpenAppSettings = () => {
+    if (window.Capacitor?.Plugins?.WidgetBridge?.openAppSettings) {
+      window.Capacitor.Plugins.WidgetBridge.openAppSettings();
+    } else {
+      alert('Please enable Microphone permission in your device Settings > Apps > Partner Play.');
+    }
+  };
+
   const startRecording = async () => {
     try {
+      setMicPermissionDenied(false);
+
+      // On Android Capacitor native app, request system permission first
+      if (window.Capacitor?.Plugins?.WidgetBridge?.requestMicrophonePermission) {
+        try {
+          const permResult = await window.Capacitor.Plugins.WidgetBridge.requestMicrophonePermission();
+          if (permResult && permResult.granted === false) {
+            setMicPermissionDenied(true);
+            setDownloadToast('Microphone permission needed to record 🎙️');
+            return;
+          }
+        } catch (e) {
+          console.warn('Native mic permission check:', e);
+        }
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioChunksRef.current = [];
       const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
@@ -1224,8 +1249,9 @@ export default function CanvasBoard({ room, user, isActive = true }) {
       }, 1000);
     } catch (err) {
       console.error('Microphone access denied:', err);
-      setDownloadToast('Microphone access needed to record voice whispers 🎙️');
-      setTimeout(() => setDownloadToast(null), 3000);
+      setMicPermissionDenied(true);
+      setDownloadToast('Microphone permission needed. Tap to open Settings 🎙️');
+      setTimeout(() => setDownloadToast(null), 3500);
     }
   };
 
@@ -1906,6 +1932,20 @@ export default function CanvasBoard({ room, user, isActive = true }) {
 
             {/* Recorder Circle / Timer Display */}
             <div className="py-2 flex flex-col items-center justify-center space-y-3">
+              {micPermissionDenied && (
+                <div className="w-full p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs space-y-2 text-center animate-fadeIn">
+                  <p className="font-bold">Microphone Permission Denied</p>
+                  <p className="text-[11px] opacity-85">Android requires mic permission to record voice notes.</p>
+                  <button
+                    type="button"
+                    onClick={handleOpenAppSettings}
+                    className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-sm transition-all active:scale-95"
+                  >
+                    Open App Settings
+                  </button>
+                </div>
+              )}
+
               {!recordedAudioBlob ? (
                 <>
                   <div className="relative">

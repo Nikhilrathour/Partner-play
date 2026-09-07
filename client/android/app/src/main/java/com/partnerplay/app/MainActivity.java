@@ -1,10 +1,14 @@
 package com.partnerplay.app;
 
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.Manifest;
 import android.os.Bundle;
 import android.os.PowerManager;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
@@ -18,6 +22,18 @@ public class MainActivity extends BridgeActivity {
         // Ensure partner notification channel is registered with Android system immediately on startup
         try {
             FCMService.createNotificationChannel(this);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        // Auto-request microphone permission on Android if needed for Voice Whispers
+        try {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, new String[]{
+                    Manifest.permission.RECORD_AUDIO,
+                    Manifest.permission.MODIFY_AUDIO_SETTINGS
+                }, 1002);
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }

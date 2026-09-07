@@ -25,7 +25,8 @@ import com.getcapacitor.PermissionState;
 import com.google.firebase.messaging.FirebaseMessaging;
 
 @CapacitorPlugin(name = "WidgetBridge", permissions = {
-    @Permission(strings = { Manifest.permission.POST_NOTIFICATIONS }, alias = "notifications")
+    @Permission(strings = { Manifest.permission.POST_NOTIFICATIONS }, alias = "notifications"),
+    @Permission(strings = { Manifest.permission.RECORD_AUDIO, Manifest.permission.MODIFY_AUDIO_SETTINGS }, alias = "microphone")
 })
 public class WidgetBridgePlugin extends Plugin {
 
@@ -351,6 +352,41 @@ public class WidgetBridgePlugin extends Plugin {
             call.resolve(ret);
         } catch (Exception e) {
             call.reject("Failed to stop music foreground service", e);
+        }
+    }
+
+    @PluginMethod
+    public void requestMicrophonePermission(PluginCall call) {
+        if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissionForAlias("microphone", call, "microphoneCallback");
+        } else {
+            JSObject ret = new JSObject();
+            ret.put("granted", true);
+            call.resolve(ret);
+        }
+    }
+
+    @PermissionCallback
+    private void microphoneCallback(PluginCall call) {
+        boolean granted = ContextCompat.checkSelfPermission(getContext(), Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
+        JSObject ret = new JSObject();
+        ret.put("granted", granted);
+        call.resolve(ret);
+    }
+
+    @PluginMethod
+    public void openAppSettings(PluginCall call) {
+        try {
+            Context context = getContext();
+            Intent intent = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+            intent.setData(android.net.Uri.fromParts("package", context.getPackageName(), null));
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            context.startActivity(intent);
+            JSObject ret = new JSObject();
+            ret.put("success", true);
+            call.resolve(ret);
+        } catch (Exception e) {
+            call.reject("Failed to open app settings: " + e.getMessage());
         }
     }
 }
