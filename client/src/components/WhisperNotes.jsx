@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { socket } from '../services/socket';
 import { playPop } from '../services/sound';
-import { StickyNote, Trash2, X, Send, Heart, MessageSquareHeart, Check, Sparkles } from 'lucide-react';
+import { StickyNote, Trash2, X, Send, Heart, MessageSquareHeart, Check } from 'lucide-react';
 
 const NOTE_COLORS = [
   { hex: '#fffbeb', border: '#fde68a', text: '#451a03', label: 'Warm Honey' },
@@ -32,8 +32,17 @@ function formatNoteDate(timestamp) {
   return `${date.toLocaleDateString([], { month: 'short', day: 'numeric' })}, ${timeStr}`;
 }
 
+function sortNotesLatestFirst(items) {
+  if (!items || !Array.isArray(items)) return [];
+  return [...items].sort((a, b) => {
+    const timeA = a?.timestamp ? new Date(a.timestamp).getTime() : 0;
+    const timeB = b?.timestamp ? new Date(b.timestamp).getTime() : 0;
+    return timeB - timeA;
+  });
+}
+
 export default function WhisperNotes({ room, user, isOpen, onClose, asTab = false }) {
-  const [notes, setNotes] = useState(room?.notes || []);
+  const [notes, setNotes] = useState(() => sortNotesLatestFirst(room?.notes));
   const [newNoteText, setNewNoteText] = useState('');
   const [selectedColor, setSelectedColor] = useState(NOTE_COLORS[0].hex);
   const [toastMessage, setToastMessage] = useState(null);
@@ -41,14 +50,14 @@ export default function WhisperNotes({ room, user, isOpen, onClose, asTab = fals
   // Sync notes whenever room prop updates (e.g. initial auto-join or reconnect)
   useEffect(() => {
     if (room?.notes) {
-      setNotes(room.notes);
+      setNotes(sortNotesLatestFirst(room.notes));
     }
   }, [room?.notes]);
 
-  // Sync incoming notes from server
+  // Sync incoming notes from server (latest note on top)
   useEffect(() => {
     const handleNoteAdded = (newNote) => {
-      setNotes((prev) => [...prev, newNote]);
+      setNotes((prev) => [newNote, ...prev.filter((n) => n.id !== newNote.id)]);
     };
 
     const handleNoteDeleted = (noteId) => {
@@ -114,14 +123,11 @@ export default function WhisperNotes({ room, user, isOpen, onClose, asTab = fals
             </div>
             <div>
               <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[#18181b] flex items-center gap-2.5">
-                Whisper Notes & Letters
+                Whisper Notes
                 <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#fff3ef] text-[#ff5722] border border-[#ffcdbc] font-semibold">
-                  {notes.length} {notes.length === 1 ? 'Note' : 'Notes'}
+                  {notes.length}
                 </span>
               </h2>
-              <p className="text-xs sm:text-sm text-[#71717a] mt-0.5">
-                Leave cute thoughts, secret letters, and daily reminders for your partner
-              </p>
             </div>
           </div>
         </div>
@@ -129,10 +135,7 @@ export default function WhisperNotes({ room, user, isOpen, onClose, asTab = fals
         {/* Compose Card */}
         <div className="my-6 p-5 rounded-2xl bg-white border border-[#ede8e1] shadow-[0_2px_12px_rgba(0,0,0,0.03)] max-w-2xl">
           <form onSubmit={handleAddNote} className="space-y-3.5">
-            <div className="flex items-center justify-between">
-              <label className="block text-xs font-bold text-[#18181b]">
-                Pin a New Note to the Board
-              </label>
+            <div className="flex items-center justify-end">
               <span className={`text-[11px] font-mono ${newNoteText.length > 450 ? 'text-red-500 font-bold' : 'text-zinc-400'}`}>
                 {newNoteText.length}/500
               </span>
@@ -140,7 +143,7 @@ export default function WhisperNotes({ room, user, isOpen, onClose, asTab = fals
             <textarea
               value={newNoteText}
               onChange={(e) => setNewNoteText(e.target.value.slice(0, 500))}
-              placeholder="Write a sweet whisper, loving thought, or reminder for your partner..."
+              placeholder="Write a note..."
               rows={3}
               className="w-full bg-[#fbf9f6] text-sm p-3.5 rounded-xl border border-[#ede8e1] focus:outline-none focus:border-[#ff5722] text-[#18181b] placeholder:text-[#a1a1aa] resize-none transition-colors"
             />
@@ -183,13 +186,10 @@ export default function WhisperNotes({ room, user, isOpen, onClose, asTab = fals
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 pb-16">
           {notes.length === 0 ? (
             <div className="col-span-full text-center py-16 text-[#71717a] bg-white rounded-3xl border border-dashed border-[#ede8e1] p-8 space-y-2">
-              <div className="w-14 h-14 rounded-2xl bg-[#fff3ef] border border-[#ffcdbc] text-[#ff5722] flex items-center justify-center mx-auto mb-2">
-                <Sparkles className="w-7 h-7" />
+              <div className="w-12 h-12 rounded-2xl bg-[#fff3ef] border border-[#ffcdbc] text-[#ff5722] flex items-center justify-center mx-auto mb-2">
+                <StickyNote className="w-6 h-6" />
               </div>
-              <h3 className="text-base font-bold text-[#18181b]">Your Love Board is Empty</h3>
-              <p className="text-xs text-[#71717a] max-w-sm mx-auto">
-                Write your first sweet thought or letter above to surprise your partner!
-              </p>
+              <h3 className="text-sm font-semibold text-[#71717a]">No notes yet</h3>
             </div>
           ) : (
             notes.map((note) => {
@@ -197,7 +197,7 @@ export default function WhisperNotes({ room, user, isOpen, onClose, asTab = fals
               return (
                 <div
                   key={note.id}
-                  className="p-5 rounded-2xl shadow-sm border relative transition-all group hover:-translate-y-1 hover:shadow-md"
+                  className="p-5 rounded-2xl shadow-sm border relative transition-all group hover:-translate-y-1 hover:shadow-md animate-fadeIn"
                   style={{ 
                     backgroundColor: note.color, 
                     borderColor: style.border,
@@ -241,7 +241,6 @@ export default function WhisperNotes({ room, user, isOpen, onClose, asTab = fals
           </div>
           <div>
             <h3 className="text-sm font-bold text-[#18181b]">Whisper Notes</h3>
-            <p className="text-[11px] text-[#71717a]">Sweet thoughts & letters</p>
           </div>
         </div>
         <button
@@ -255,9 +254,8 @@ export default function WhisperNotes({ room, user, isOpen, onClose, asTab = fals
       <div className="flex-1 overflow-y-auto py-4 space-y-3 pr-1">
         {notes.length === 0 ? (
           <div className="text-center py-12 text-[#71717a] space-y-1">
-            <StickyNote className="w-10 h-10 mx-auto text-[#d4cfc7] mb-2 stroke-1" />
-            <p className="text-xs font-semibold text-[#18181b]">No whisper notes yet.</p>
-            <p className="text-[11px] text-[#71717a]">Leave a sweet message for your partner!</p>
+            <StickyNote className="w-8 h-8 mx-auto text-[#d4cfc7] mb-2 stroke-1" />
+            <p className="text-xs font-semibold text-[#18181b]">No notes yet</p>
           </div>
         ) : (
           notes.map((note) => {
@@ -265,7 +263,7 @@ export default function WhisperNotes({ room, user, isOpen, onClose, asTab = fals
             return (
               <div
                 key={note.id}
-                className="p-3.5 rounded-xl shadow-sm border relative transition-all group"
+                className="p-3.5 rounded-xl shadow-sm border relative transition-all group animate-fadeIn"
                 style={{ 
                   backgroundColor: note.color, 
                   borderColor: style.border,
@@ -296,7 +294,7 @@ export default function WhisperNotes({ room, user, isOpen, onClose, asTab = fals
         <textarea
           value={newNoteText}
           onChange={(e) => setNewNoteText(e.target.value.slice(0, 500))}
-          placeholder="Leave a message for your partner..."
+          placeholder="Write a note..."
           rows={3}
           className="w-full bg-[#fbf9f6] text-xs p-3 rounded-xl border border-[#ede8e1] focus:outline-none focus:border-[#ff5722] text-[#18181b] placeholder:text-[#a1a1aa] resize-none"
         />

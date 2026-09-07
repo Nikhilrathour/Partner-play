@@ -1229,7 +1229,8 @@ io.on('connection', (socket) => {
       y: y || 50,
     };
 
-    room.notes.push(note);
+    // Store latest note at the top
+    room.notes.unshift(note);
     io.in(currentRoomCode).emit('note:added', note);
 
     // Send FCM push to offline partner for new notes
