@@ -479,6 +479,7 @@ app.post('/api/room/create', (req, res) => {
     createdAt: Date.now(),
     members: [newUser],
     canvasState: [],
+    canvasTheme: 'light',
     currentTrack: { ...DEFAULT_TEST_TRACK },
     notes: [],
   };
@@ -491,6 +492,7 @@ app.post('/api/room/create', (req, res) => {
       user: newUser,
       members: newRoom.members,
       canvasState: newRoom.canvasState,
+      canvasTheme: newRoom.canvasTheme,
       currentTrack: newRoom.currentTrack,
       notes: newRoom.notes,
     },
@@ -509,6 +511,7 @@ app.post('/api/room/join', (req, res) => {
       createdAt: Date.now(),
       members: [],
       canvasState: [],
+      canvasTheme: 'light',
       currentTrack: { ...DEFAULT_TEST_TRACK },
       notes: [],
     };
@@ -545,6 +548,7 @@ app.post('/api/room/join', (req, res) => {
       user: newUser,
       members: room.members,
       canvasState: room.canvasState,
+      canvasTheme: room.canvasTheme || 'light',
       currentTrack: room.currentTrack,
       notes: room.notes,
     },
@@ -727,6 +731,36 @@ app.post('/api/audio/upload', (req, res) => {
   }
 });
 
+// Endpoint for uploading photos to doodle on the canvas
+app.post('/api/canvas/upload', (req, res) => {
+  const { fileData, fileName } = req.body;
+  if (!fileData) {
+    return res.status(400).json({ error: 'No image data provided' });
+  }
+  try {
+    const base64Data = fileData.replace(/^data:[^;]+;base64,/, '');
+    const buffer = Buffer.from(base64Data, 'base64');
+    const ext = path.extname(fileName || '') || '.jpg';
+    const safeId = `photo_${Date.now()}_${Math.random().toString(36).substring(2, 7)}${ext}`;
+    const filePath = path.join(uploadsDir, safeId);
+    fs.writeFileSync(filePath, buffer);
+
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+    const host = req.get('host');
+    const imageUrl = `${protocol}://${host}/uploads/${safeId}`;
+
+    return res.json({
+      success: true,
+      url: imageUrl,
+      fileName,
+      id: safeId,
+    });
+  } catch (err) {
+    console.error('Canvas photo upload failed:', err);
+    return res.status(500).json({ error: 'Failed to process photo upload' });
+  }
+});
+
 // Serve client dist static files
 const distPath = path.join(__dirname, '../client/dist');
 app.use(express.static(distPath));
@@ -767,6 +801,7 @@ io.on('connection', (socket) => {
       createdAt: Date.now(),
       members: [newUser],
       canvasState: [], // stroke history
+      canvasTheme: 'light',
       currentTrack: {
         source: 'ambient',
         id: 'lofi_romance',
@@ -793,6 +828,7 @@ io.on('connection', (socket) => {
           user: newUser,
           members: newRoom.members,
           canvasState: newRoom.canvasState,
+          canvasTheme: newRoom.canvasTheme,
           currentTrack: newRoom.currentTrack,
           notes: newRoom.notes,
         },
@@ -812,6 +848,7 @@ io.on('connection', (socket) => {
         createdAt: Date.now(),
         members: [],
         canvasState: [],
+        canvasTheme: 'light',
         currentTrack: { ...DEFAULT_TEST_TRACK },
         notes: [],
       };
@@ -884,6 +921,7 @@ io.on('connection', (socket) => {
           user: newUser,
           members: room.members,
           canvasState: room.canvasState,
+          canvasTheme: room.canvasTheme || 'light',
           currentTrack: initialSyncTrack,
           notes: room.notes,
         },
@@ -964,11 +1002,24 @@ io.on('connection', (socket) => {
       callback({
         success: true,
         canvasState: room.canvasState || [],
+        canvasTheme: room.canvasTheme || 'light',
         timestamp: Date.now(),
       });
     } else {
       socket.emit('canvas:history_sync', room.canvasState || []);
     }
+  });
+
+  // Canvas: Theme change ('light' | 'midnight')
+  socket.on('canvas:theme', ({ theme }) => {
+    if (!currentRoomCode) return;
+    const room = rooms.get(currentRoomCode);
+    if (!room) return;
+    room.canvasTheme = theme === 'midnight' ? 'midnight' : 'light';
+    socket.to(currentRoomCode).emit('canvas:theme', {
+      theme: room.canvasTheme,
+      updatedBy: currentUser?.name || 'Partner',
+    });
   });
 
   // Live cursor position (normalized 0.0 - 1.0)
