@@ -34,6 +34,7 @@ jobs:
         run: |
           cd client
           npm ci || npm install --include=dev
+          npm install --no-save @rollup/rollup-linux-x64-gnu
 
       - name: Build Web App
         run: |
