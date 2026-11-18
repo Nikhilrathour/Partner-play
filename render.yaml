@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: partner-play
+    runtime: node
+    plan: free
+    buildCommand: npm --prefix client install --include=dev && npm --prefix client install --no-save @rollup/rollup-linux-x64-gnu && npm --prefix client run build && npm --prefix server install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: FIREBASE_SERVICE_ACCOUNT_BASE64
+        sync: false

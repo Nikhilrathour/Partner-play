@@ -105,12 +105,12 @@ export default function Navbar({
   return (
     <>
       {/* TOP BAR (Creator Studio Warm Theme) with Notch & Safe Area Clearance */}
-      <header className="pt-[max(env(safe-area-inset-top,0px),30px)] sm:pt-0 pb-2 sm:pb-0 min-h-[calc(3.75rem+max(env(safe-area-inset-top,0px),30px))] sm:min-h-[4rem] px-3 sm:px-6 flex items-center justify-between border-b border-[#ede8e1] bg-white/95 backdrop-blur-md relative z-30 flex-shrink-0 w-full max-w-full box-border">
+      <header className="pt-[env(safe-area-inset-top,0px)] h-[calc(3.5rem+env(safe-area-inset-top,0px))] sm:h-16 px-3 sm:px-6 flex items-center justify-between border-b border-[#ede8e1] bg-white/95 backdrop-blur-md relative z-30 flex-shrink-0 w-full max-w-full box-border">
         {/* Left: Brand & Studio Key Pill */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0 min-w-0">
           <div className="flex items-center gap-1.5 shrink-0">
-            <AppIcon name="app" className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl shadow-xs shrink-0" alt="Nikhana Play" />
-            <span className="text-sm sm:text-base font-bold tracking-tight text-zinc-900 hidden min-[340px]:inline">
+            <AppIcon name="app" className="w-7 h-7 sm:w-9 sm:h-9 rounded-xl shadow-xs shrink-0" alt="Nikhana Play" />
+            <span className="text-sm sm:text-base font-bold tracking-tight text-zinc-900 hidden min-[360px]:inline">
               Nikhana
             </span>
           </div>
@@ -245,7 +245,7 @@ export default function Navbar({
 
           {/* Profile & Connectivity Options Popover */}
           {isMenuOpen && (
-            <div className="absolute right-0 top-full mt-2 w-72 max-w-[calc(100vw-1.5rem)] rounded-2xl bg-white border border-[#ede8e1] shadow-2xl p-3.5 z-50 animate-fadeIn space-y-3 text-xs text-[#18181b]">
+            <div className="absolute right-0 top-full mt-2 w-72 max-w-[calc(100vw-1.5rem)] max-h-[80dvh] overflow-y-auto rounded-2xl bg-white border border-[#ede8e1] shadow-2xl p-3.5 z-50 animate-fadeIn space-y-3 text-xs text-[#18181b] no-scrollbar">
               {/* Profile Header */}
               <div className="flex items-center gap-2.5 pb-2.5 border-b border-[#ede8e1]">
                 <div 
@@ -353,7 +353,7 @@ export default function Navbar({
       </header>
 
       {/* MOBILE BOTTOM NAVIGATION BAR (Thumb-friendly Studio Bar on <640px with Safe Area) */}
-      <nav className="sm:hidden fixed bottom-0 left-0 right-0 h-[calc(3.5rem+env(safe-area-inset-bottom,0px))] pb-[env(safe-area-inset-bottom,0px)] bg-white/95 backdrop-blur-md border-t border-[#ede8e1] z-40 flex items-center justify-around px-2 shadow-lg">
+      <nav className="sm:hidden fixed bottom-0 left-0 right-0 h-[calc(3.5rem+env(safe-area-inset-bottom,0px))] pb-[env(safe-area-inset-bottom,0px)] bg-white/95 backdrop-blur-md border-t border-[#ede8e1] z-40 flex items-center justify-around px-2 shadow-lg select-none">
         {/* Canvas Button */}
         <button
           id="mobile-nav-canvas"
@@ -361,12 +361,14 @@ export default function Navbar({
             onSelectTab('canvas');
             playPop();
           }}
-          className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
+          className={`flex flex-col items-center justify-center flex-1 py-1 transition-all active:scale-95 ${
             activeTab === 'canvas' ? 'text-[#ff5722] font-bold' : 'text-zinc-500 hover:text-zinc-800'
           }`}
         >
-          <AppIcon name="paintbrush" className="w-5 h-5 mb-0.5" />
-          <span className="text-[10px]">Canvas</span>
+          <div className={`p-1 rounded-xl transition-colors ${activeTab === 'canvas' ? 'bg-[#fff3ef]' : ''}`}>
+            <AppIcon name="paintbrush" className="w-5 h-5" />
+          </div>
+          <span className="text-[10px] mt-0.5">Canvas</span>
         </button>
 
         {/* Music Lounge Button */}
@@ -376,20 +378,20 @@ export default function Navbar({
             onSelectTab('music');
             playPop();
           }}
-          className={`relative flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
+          className={`relative flex flex-col items-center justify-center flex-1 py-1 transition-all active:scale-95 ${
             activeTab === 'music' ? 'text-[#ff5722] font-bold' : 'text-zinc-500 hover:text-zinc-800'
           }`}
         >
-          <div className="relative">
-            <AppIcon name="music" className="w-5 h-5 mb-0.5" />
+          <div className={`p-1 rounded-xl relative transition-colors ${activeTab === 'music' ? 'bg-[#fff3ef]' : ''}`}>
+            <AppIcon name="music" className="w-5 h-5" />
             {isPlaying && (
-              <span className="absolute -top-1 -right-2 flex h-2 w-2">
+              <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#ff5722] opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-[#ff5722]"></span>
               </span>
             )}
           </div>
-          <span className="text-[10px] flex items-center gap-0.5">
+          <span className="text-[10px] mt-0.5 flex items-center gap-0.5">
             Music
             {isPlaying && (
               <span className="w-1 h-1 rounded-full bg-[#ff5722] animate-pulse" />
@@ -404,19 +406,19 @@ export default function Navbar({
             onSelectTab('notes');
             playPop();
           }}
-          className={`relative flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
+          className={`relative flex flex-col items-center justify-center flex-1 py-1 transition-all active:scale-95 ${
             activeTab === 'notes' ? 'text-[#ff5722] font-bold' : 'text-zinc-500 hover:text-zinc-800'
           }`}
         >
-          <div className="relative">
-            <AppIcon name="stickynote" className="w-5 h-5 mb-0.5" />
+          <div className={`p-1 rounded-xl relative transition-colors ${activeTab === 'notes' ? 'bg-[#fff3ef]' : ''}`}>
+            <AppIcon name="stickynote" className="w-5 h-5" />
             {notesCount > 0 && (
-              <span className="absolute -top-1.5 -right-2 w-3.5 h-3.5 rounded-full bg-[#ff5722] text-white text-[8px] font-bold flex items-center justify-center">
+              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-[#ff5722] text-white text-[8px] font-bold flex items-center justify-center shadow-xs">
                 {notesCount}
               </span>
             )}
           </div>
-          <span className="text-[10px]">Notes</span>
+          <span className="text-[10px] mt-0.5">Notes</span>
         </button>
       </nav>
 

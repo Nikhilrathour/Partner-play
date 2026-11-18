@@ -104,7 +104,7 @@ export default function WhisperNotes({ room, user, isOpen, onClose, asTab = fals
   // 1. FULL DEDICATED TAB VIEW
   if (asTab) {
     return (
-      <div className="flex-1 flex flex-col h-full overflow-y-auto p-4 sm:p-6 lg:p-8 animate-fadeIn max-w-5xl mx-auto w-full bg-[#fbf9f6] relative">
+      <div className="flex-1 flex flex-col h-full overflow-y-auto p-3 sm:p-6 lg:p-8 animate-fadeIn max-w-5xl mx-auto w-full bg-[#fbf9f6] relative pb-[calc(5rem+env(safe-area-inset-bottom,0px))] sm:pb-16">
         {/* Toast */}
         {toastMessage && (
           <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 pointer-events-none animate-fadeIn">
@@ -133,7 +133,7 @@ export default function WhisperNotes({ room, user, isOpen, onClose, asTab = fals
         </div>
 
         {/* Compose Card */}
-        <div className="my-6 p-5 rounded-2xl bg-white border border-[#ede8e1] shadow-[0_2px_12px_rgba(0,0,0,0.03)] max-w-2xl">
+        <div className="my-4 sm:my-6 p-4 sm:p-5 rounded-2xl bg-white border border-[#ede8e1] shadow-[0_2px_12px_rgba(0,0,0,0.03)] max-w-2xl">
           <form onSubmit={handleAddNote} className="space-y-3.5">
             <div className="flex items-center justify-end">
               <span className={`text-[11px] font-mono ${newNoteText.length > 450 ? 'text-red-500 font-bold' : 'text-zinc-400'}`}>
@@ -215,7 +215,7 @@ export default function WhisperNotes({ room, user, isOpen, onClose, asTab = fals
                   </div>
                   <button
                     onClick={() => handleDeleteNote(note.id)}
-                    className="absolute top-3.5 right-3.5 opacity-0 group-hover:opacity-100 p-1.5 text-black/40 hover:text-red-600 rounded-lg hover:bg-black/5 transition-all"
+                    className="absolute top-3 right-3 opacity-60 sm:opacity-0 group-hover:opacity-100 p-1.5 text-black/50 hover:text-red-600 rounded-lg hover:bg-black/5 transition-all active:scale-95"
                     title="Remove note"
                   >
                     <Trash2 className="w-4 h-4" />

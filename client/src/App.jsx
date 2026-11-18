@@ -229,7 +229,7 @@ export default function App() {
   };
 
   return (
-    <div className="fixed inset-0 flex flex-col overflow-hidden bg-[#fbf9f6] text-[#18181b] selection:bg-[#ff5722]/20 selection:text-[#ff5722]">
+    <div className="fixed inset-0 h-[100dvh] max-h-[100dvh] w-full flex flex-col overflow-hidden bg-[#fbf9f6] text-[#18181b] selection:bg-[#ff5722]/20 selection:text-[#ff5722]">
       {/* Top Navigation Bar with Segmented Tabs */}
       <Navbar
         room={room}
@@ -245,7 +245,7 @@ export default function App() {
       />
 
       {/* Main Workspace with Tab Visibility Preservation */}
-      <main className="relative flex-1 flex flex-col overflow-hidden pb-14 min-[460px]:pb-0 w-full max-w-full">
+      <main className="relative flex-1 flex flex-col overflow-hidden pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))] sm:pb-0 w-full max-w-full">
         
         {/* Tab 1: Collaborative Canvas (Unobstructed Full Screen) */}
         <div className={`flex-1 flex relative overflow-hidden ${activeTab === 'canvas' ? 'flex' : 'hidden'}`}>

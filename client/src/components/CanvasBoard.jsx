@@ -1652,7 +1652,7 @@ export default function CanvasBoard({ room, user, isActive = true }) {
       </div>
 
       {/* Floating Canvas Toolbar */}
-      <div className={`absolute bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] sm:bottom-4 left-1/2 -translate-x-1/2 z-30 w-[calc(100%-16px)] max-w-xl flex items-center justify-start sm:justify-center gap-1.5 p-1.5 sm:p-2 rounded-2xl shadow-xl transition-all overflow-x-auto no-scrollbar ${
+      <div className={`absolute bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] sm:bottom-4 left-1/2 -translate-x-1/2 z-30 w-[calc(100%-16px)] sm:w-auto max-w-xl flex items-center justify-start sm:justify-center gap-1 sm:gap-1.5 p-1 sm:p-2 rounded-2xl shadow-xl transition-all overflow-x-auto touch-pan-x no-scrollbar ${
         isDark 
           ? 'bg-[#18181b]/95 border border-zinc-800 text-zinc-100 shadow-[0_8px_32px_rgba(0,0,0,0.5)]' 
           : 'bg-white border border-[#ede8e1] text-[#18181b] shadow-[0_4px_24px_rgba(0,0,0,0.08)]'
@@ -1903,8 +1903,8 @@ export default function CanvasBoard({ room, user, isActive = true }) {
 
       {/* Voice Whisper Recording Modal */}
       {showVoiceModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
-          <div className={`w-full max-w-sm rounded-3xl p-6 shadow-2xl border space-y-5 text-center ${
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+          <div className={`w-full max-w-sm max-h-[90dvh] overflow-y-auto rounded-3xl p-5 sm:p-6 shadow-2xl border space-y-4 text-center ${
             isDark ? 'bg-[#18181b] border-zinc-800 text-zinc-100' : 'bg-white border-[#ede8e1] text-[#18181b]'
           }`}>
             <div className="flex items-center justify-between pb-2 border-b border-inherit">
@@ -2045,8 +2045,8 @@ export default function CanvasBoard({ room, user, isActive = true }) {
 
       {/* Photo Placement Modal */}
       {showPhotoModal && pendingPhoto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
-          <div className={`w-full max-w-sm rounded-3xl p-5 shadow-2xl border space-y-4 ${
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+          <div className={`w-full max-w-sm max-h-[90dvh] overflow-y-auto rounded-3xl p-4 sm:p-5 shadow-2xl border space-y-3.5 ${
             isDark ? 'bg-[#18181b] border-zinc-800 text-zinc-100' : 'bg-white border-[#ede8e1] text-[#18181b]'
           }`}>
             <div className="flex items-center justify-between pb-3 border-b border-inherit">

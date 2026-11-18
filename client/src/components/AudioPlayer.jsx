@@ -1516,7 +1516,7 @@ export default function AudioPlayer({
 
       {/* 1. MINI-PLAYER PILL (Appears on canvas ONLY when music is actively playing) */}
       {activeTab === 'canvas' && isPlaying && !isMiniPlayerDismissed && (
-        <div className="absolute top-2.5 right-2.5 sm:right-4 z-20 pointer-events-auto max-w-[270px] sm:max-w-xs animate-fadeIn">
+        <div className="absolute top-2.5 right-2 sm:right-4 z-20 pointer-events-auto max-w-[calc(100vw-1rem)] sm:max-w-xs animate-fadeIn">
           <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-2xl bg-white/95 backdrop-blur-md border border-[#ede8e1] shadow-md transition-all">
             <div 
               onClick={() => onSwitchTab('music')}
@@ -1569,7 +1569,7 @@ export default function AudioPlayer({
       )}
 
       {/* 2. DEDICATED MUSIC LOUNGE TAB (Creator Studio Clean Aesthetic, never display:none so audio doesn't suspend) */}
-      <div className={`w-full max-w-xl mx-auto flex-1 overflow-y-auto overflow-x-hidden px-3 sm:px-4 py-3.5 pb-28 space-y-3.5 ${activeTab === 'music' ? 'block' : 'invisible fixed -left-[9999px] -top-[9999px] pointer-events-none'}`}>
+      <div className={`w-full max-w-xl mx-auto flex-1 overflow-y-auto overflow-x-hidden px-3 sm:px-4 py-3 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] sm:pb-24 space-y-3 sm:space-y-3.5 ${activeTab === 'music' ? 'block' : 'invisible fixed -left-[9999px] -top-[9999px] pointer-events-none'}`}>
         
         {/* Status Header */}
         <div className="flex items-center justify-between pb-3 border-b border-[#ede8e1] w-full">
@@ -1631,21 +1631,21 @@ export default function AudioPlayer({
 
             {/* 2) Spinning Vinyl Turntable (Visible when not in video mode) */}
             <div className={`w-full flex justify-center py-2 ${showVideoEmbed && currentTrack.source === 'youtube' ? 'hidden' : 'flex'}`}>
-              <div className="w-40 h-40 sm:w-48 sm:h-48 rounded-full bg-[#18181b] p-2 shadow-md border-4 border-[#f4efe8] flex items-center justify-center overflow-hidden">
+              <div className="w-32 h-32 min-[400px]:w-40 min-[400px]:h-40 sm:w-48 sm:h-48 rounded-full bg-[#18181b] p-1.5 sm:p-2 shadow-md border-4 border-[#f4efe8] flex items-center justify-center overflow-hidden">
                 <div className={`w-full h-full rounded-full bg-[#1c1917] border border-white/10 flex items-center justify-center relative shadow-inner ${isPlaying ? 'animate-spin-slow' : ''}`}>
-                  <div className="absolute inset-3 rounded-full border border-white/5" />
-                  <div className="absolute inset-6 rounded-full border border-white/5" />
-                  <div className="absolute inset-9 rounded-full border border-white/5" />
+                  <div className="absolute inset-2 sm:inset-3 rounded-full border border-white/5" />
+                  <div className="absolute inset-4 sm:inset-6 rounded-full border border-white/5" />
+                  <div className="absolute inset-7 sm:inset-9 rounded-full border border-white/5" />
                   
                   {/* Center Label (Matches Studio Coral with Vector Icon) */}
-                  <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-full bg-gradient-to-tr from-[#ff5722] to-[#ff6b35] flex flex-col items-center justify-center text-white shadow-md border-2 border-white/20">
+                  <div className="w-12 h-12 min-[400px]:w-16 min-[400px]:h-16 sm:w-18 sm:h-18 rounded-full bg-gradient-to-tr from-[#ff5722] to-[#ff6b35] flex flex-col items-center justify-center text-white shadow-md border-2 border-white/20">
                     <div className="text-white drop-shadow-xs">
-                      {renderTrackIcon(currentTrack.icon, 'w-6 h-6')}
+                      {renderTrackIcon(currentTrack.icon, 'w-4 h-4 sm:w-6 sm:h-6')}
                     </div>
-                    <span className="text-[7px] font-bold uppercase opacity-90 mt-0.5 tracking-wider">DUO PLAY</span>
+                    <span className="text-[6px] sm:text-[7px] font-bold uppercase opacity-90 mt-0.5 tracking-wider">DUO PLAY</span>
                   </div>
 
-                  <div className="absolute w-3 h-3 rounded-full bg-zinc-900 border border-white/30" />
+                  <div className="absolute w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-zinc-900 border border-white/30" />
                 </div>
               </div>
             </div>
@@ -1784,7 +1784,7 @@ export default function AudioPlayer({
               e.preventDefault();
               handlePerformSearch();
             }} 
-            className="flex gap-2 w-full"
+            className="flex flex-col min-[420px]:flex-row gap-2 w-full"
           >
             <div className="relative flex-1 min-w-0">
               <input

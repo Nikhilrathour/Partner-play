@@ -117,8 +117,8 @@ export default function RoomModal({ isOpen, onClose, onJoined, currentRoomCode }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
-      <div className="w-full max-w-md rounded-3xl bg-white p-6 sm:p-8 shadow-[0_20px_50px_rgba(0,0,0,0.12)] border border-[#ede8e1] relative overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
+      <div className="w-full max-w-md max-h-[92dvh] overflow-y-auto no-scrollbar rounded-3xl bg-white p-5 sm:p-8 shadow-[0_20px_50px_rgba(0,0,0,0.12)] border border-[#ede8e1] relative overflow-x-hidden">
         {/* Soft studio ambient light */}
         <div className="absolute -top-16 -right-16 w-36 h-36 bg-[#fff3ef] rounded-full blur-2xl pointer-events-none" />
         <div className="absolute -bottom-16 -left-16 w-36 h-36 bg-[#f5f3ff] rounded-full blur-2xl pointer-events-none" />

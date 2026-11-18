@@ -39,8 +39,11 @@ export function getServerUrl() {
     return import.meta.env.VITE_SOCKET_URL;
   }
   if (typeof window !== 'undefined') {
-    // If opened on production domain, use the current origin
-    if (window.location.hostname === 'love.getfuckingclients.com') {
+    // If opened on production domain or Render URL, use the current origin
+    if (
+      window.location.hostname === 'love.getfuckingclients.com' ||
+      window.location.hostname.endsWith('.onrender.com')
+    ) {
       return window.location.origin;
     }
   }

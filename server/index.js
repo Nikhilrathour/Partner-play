@@ -46,14 +46,16 @@ try {
     const trimmed = serviceAccountRaw.trim();
     if (trimmed.startsWith('{')) {
       serviceAccount = JSON.parse(trimmed);
-    } else if (trimmed.startsWith('ey')) {
-      // Base64 encoded JSON
-      const decoded = Buffer.from(trimmed, 'base64').toString('utf8');
-      serviceAccount = JSON.parse(decoded);
     } else if (fs.existsSync(trimmed)) {
       serviceAccount = JSON.parse(fs.readFileSync(trimmed, 'utf8'));
     } else {
-      throw new Error('FIREBASE_SERVICE_ACCOUNT does not appear to be valid JSON, Base64, or file path');
+      // Try Base64 encoded JSON (handles both minified "ey..." and formatted "ew..." JSON, stripping BOM if present)
+      const decoded = Buffer.from(trimmed, 'base64').toString('utf8').replace(/^\uFEFF/, '').trim();
+      if (decoded.startsWith('{')) {
+        serviceAccount = JSON.parse(decoded);
+      } else {
+        throw new Error('FIREBASE_SERVICE_ACCOUNT does not appear to be valid JSON, Base64, or file path');
+      }
     }
 
     if (serviceAccount && serviceAccount.private_key) {
@@ -78,6 +80,7 @@ try {
 }
 
 const app = express();
+app.set('trust proxy', 1);
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -351,7 +354,7 @@ app.post('/api/fcm/test', async (req, res) => {
     return res.status(503).json({
       success: false,
       error: 'FCM is not enabled on this server.',
-      details: fcmInitError || 'FIREBASE_SERVICE_ACCOUNT environment variable is missing on Railway.',
+      details: fcmInitError || 'FIREBASE_SERVICE_ACCOUNT environment variable is missing on the server.',
     });
   }
 
@@ -716,7 +719,7 @@ app.post('/api/audio/upload', (req, res) => {
     const filePath = path.join(uploadsDir, safeId);
     fs.writeFileSync(filePath, buffer);
 
-    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+    const protocol = (req.headers['x-forwarded-proto'] || req.protocol).split(',')[0].trim();
     const host = req.get('host');
     const audioUrl = `${protocol}://${host}/uploads/${safeId}`;
 
@@ -746,7 +749,7 @@ app.post('/api/canvas/upload', (req, res) => {
     const filePath = path.join(uploadsDir, safeId);
     fs.writeFileSync(filePath, buffer);
 
-    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+    const protocol = (req.headers['x-forwarded-proto'] || req.protocol).split(',')[0].trim();
     const host = req.get('host');
     const imageUrl = `${protocol}://${host}/uploads/${safeId}`;
 
@@ -776,7 +779,7 @@ app.post('/api/voice/upload', (req, res) => {
     const filePath = path.join(uploadsDir, safeId);
     fs.writeFileSync(filePath, buffer);
 
-    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+    const protocol = (req.headers['x-forwarded-proto'] || req.protocol).split(',')[0].trim();
     const host = req.get('host');
     const voiceUrl = `${protocol}://${host}/uploads/${safeId}`;
 

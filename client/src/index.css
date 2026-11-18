@@ -116,12 +116,26 @@ body {
 }
 
 /* Safe Area Inset Helpers */
+.pt-safe {
+  padding-top: max(0.5rem, env(safe-area-inset-top, 0px));
+}
+
 .pb-safe {
   padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
 }
 
 .mb-safe {
   margin-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+}
+
+.touch-pan-x {
+  touch-action: pan-x;
+  -webkit-overflow-scrolling: touch;
+}
+
+.touch-pan-y {
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Audio Player Range Slider Luxury Styling */

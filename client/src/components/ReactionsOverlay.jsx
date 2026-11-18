@@ -119,14 +119,14 @@ export default function ReactionsOverlay({ user }) {
         ))}
       </div>
 
-      {/* Mobile-First Reaction FAB with safe area (floats above the canvas drawing toolbar) */}
+      {/* Mobile-First Reaction FAB with safe area (floats right above canvas toolbar) */}
       <div 
         ref={menuRef} 
-        className="fixed right-3 bottom-[calc(8.5rem+env(safe-area-inset-bottom,0px))] sm:bottom-6 z-30 flex items-center"
+        className="fixed right-3 bottom-[calc(7.2rem+env(safe-area-inset-bottom,0px))] sm:bottom-6 z-30 flex items-center"
       >
-        {/* Expanded horizontal emoji tray */}
+        {/* Responsive emoji tray (4-column grid on mobile, flex row on desktop) */}
         {isMenuOpen && (
-          <div className="flex items-center gap-1 p-1.5 mr-2 rounded-2xl bg-white shadow-[0_4px_24px_rgba(0,0,0,0.1)] border border-[#ede8e1] animate-fadeIn">
+          <div className="grid grid-cols-4 sm:flex items-center gap-1 p-1.5 mr-2 rounded-2xl bg-white shadow-[0_4px_24px_rgba(0,0,0,0.12)] border border-[#ede8e1] animate-fadeIn">
             {REACTION_ITEMS.map((item) => (
               <button
                 key={item.emoji}
