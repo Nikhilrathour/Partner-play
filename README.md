@@ -64,6 +64,24 @@ Long-distance relationships lack a persistent shared space that feels intimate a
 
 ---
 
+## 📲 Download
+
+<p align="center">
+  <a href="https://github.com/Nikhilrathour/Partner-play/actions/workflows/build-apk.yml">
+    <img src="https://img.shields.io/badge/⬇_Download_Android_APK-FF5722?style=for-the-badge&logo=android&logoColor=white" alt="Download APK" />
+  </a>
+</p>
+
+> **How to get the latest APK:**
+> 1. Click the badge above → opens the GitHub Actions workflow page.
+> 2. Click the **latest successful run** (green ✅).
+> 3. Scroll to **Artifacts** → download **`PartnerPlay-Android-Widget-APK`**.
+> 4. Extract the ZIP and install `app-debug.apk` on your Android device.
+>
+> *The APK is built automatically on every push to `main` via CI. No Android Studio required.*
+
+---
+
 ## Features
 
 ### 🎨 Collaborative Vector Canvas
